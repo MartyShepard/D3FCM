@@ -102,10 +102,10 @@ BOOL CCommandsDlg::OnInitDialog()
 		{
 			strMod += " + ";
 		}
-		strLine.Format("%s \t%s%s", g_Commands[n].m_strCommand, strMod, strKeys);
+		strLine.Format("%s \t%s%s", g_Commands[n].m_strCommand, strMod.GetString(), strKeys.GetString());
 		m_lstCommands.AddString(strLine);
 
-		strLine.Format("%s \t\t\t%s%s", g_Commands[n].m_strCommand, strMod, strKeys);
+		strLine.Format("%s \t\t\t%s%s", g_Commands[n].m_strCommand, strMod.GetString(), strKeys.GetString());
 
 		fileout.Write(strLine, strLine.GetLength());
 		fileout.Write("\r\n", 2);

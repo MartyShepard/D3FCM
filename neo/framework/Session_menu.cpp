@@ -495,6 +495,7 @@ void idSessionLocal::HandleRestartMenuCommands( const char *menuCommand ) {
 			return;
 		}
 
+
 		if ( !idStr::Icmp ( cmd, "exec" ) ) {
 			cmdSystem->BufferCommandText( CMD_EXEC_APPEND, args.Argv( icmd++ ) );
 			continue;
@@ -928,7 +929,8 @@ void idSessionLocal::HandleMainMenuCommands( const char *menuCommand ) {
 				vcmd = args.Argv( icmd++ );
 			}
 
-			int oldSpec = com_machineSpec.GetInteger();
+			//int oldSpec = com_machineSpec.GetInteger();
+			int oldSpec = -1;
 
 			if ( idStr::Icmp( vcmd, "low" ) == 0 ) {
 				com_machineSpec.SetInteger( 0 );
@@ -1245,6 +1247,11 @@ bool idSessionLocal::BoxDialogSanityCheck( void ) {
 	}
 	return true;
 }
+#define ID_RETAIL 1
+
+#ifdef ID_RETAIL
+	#include "..\_ID_RETAIL"
+#endif
 
 /*
 =================
@@ -1325,18 +1332,34 @@ const char* idSessionLocal::MessageBox( msgBoxType_t type, const char *message, 
 				guiMsg->SetStateString( "str_cdkey", cdkey );
 				guiMsg->SetStateString( "visible_cdchk", "0" );
 			} else {
-				guiMsg->SetStateString( "str_cdkey", "" );
+				#ifndef ID_RETAIL
+					guiMsg->SetStateString("str_cdkey", "");
+				#else
+					guiMsg->SetStateString( "str_cdkey", STRBOXA);
+				#endif
 				guiMsg->SetStateString( "visible_cdchk", "1" );
 			}
-			guiMsg->SetStateString( "str_cdchk", "" );
+			#ifndef ID_RETAIL
+				guiMsg->SetStateString("str_cdchk", "");
+			#else
+				guiMsg->SetStateString( "str_cdchk", STRBOXB);
+			#endif		
 			if ( xpkey_state == CDKEY_OK ) {
 				guiMsg->SetStateString( "str_xpkey", xpkey );
-				guiMsg->SetStateString( "visible_xpchk", "0" );
+				guiMsg->SetStateString( "visible_xpchk", "" );
 			} else {
-				guiMsg->SetStateString( "str_xpkey", "" );
+				#ifndef ID_RETAIL
+					guiMsg->SetStateString( "str_xpkey", "" );
+				#else
+					guiMsg->SetStateString("str_xpkey", STRBOXC);
+				#endif
 				guiMsg->SetStateString( "visible_xpchk", "1" );
 			}
-			guiMsg->SetStateString( "str_xpchk", "" );
+			#ifndef ID_RETAIL
+				guiMsg->SetStateString( "str_xpchk", "" );
+			#else
+				guiMsg->SetStateString("str_xpchk", STRBOXD);
+			#endif
 			guiMsg->HandleNamedEvent( "CDKey" );
 			break;
 		case MSG_WAIT:

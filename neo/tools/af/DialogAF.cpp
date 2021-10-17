@@ -301,8 +301,7 @@ AFEditorInit
 void AFEditorInit( const idDict *spawnArgs ) {
 
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the articulated figure editor in fullscreen mode.\n"
-					"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf( "Cannot run the articulated figure editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart.\n" );
 		return;
 	}
 
@@ -312,6 +311,11 @@ void AFEditorInit( const idDict *spawnArgs ) {
 	}
 
 	if ( g_AFDialog->GetSafeHwnd() == NULL) {
+
+		/*Marty*/
+		Sys_GrabMouseCursor(false);
+		SetCapture(false);
+
 		g_AFDialog->Create( IDD_DIALOG_AF );
 /*
 		// FIXME: restore position
@@ -365,6 +369,9 @@ AFEditorShutdown
 void AFEditorShutdown( void ) {
 	delete g_AFDialog;
 	g_AFDialog = NULL;
+
+	/*Marty*/
+	Sys_GrabMouseCursor(true);
 }
 
 

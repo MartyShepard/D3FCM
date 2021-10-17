@@ -136,6 +136,8 @@ public:
 	virtual	idListGUI *			AllocListGUI( void ) const;
 	virtual void				FreeListGUI( idListGUI *listgui );
 
+	virtual idUserInterface*	DeleteClosedGui();		/* Marty DeleteClosedGui*/
+	virtual int					GetNumGuis();			/* Marty GetNumGuis*/
 private:
 	idRectangle					screenRect;
 	idDeviceContext				dc;

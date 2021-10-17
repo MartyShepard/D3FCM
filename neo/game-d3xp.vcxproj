@@ -31,7 +31,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>Game-d3xp</ProjectName>
+    <ProjectName>D3XP</ProjectName>
     <ProjectGuid>{0BC6FCC9-C65E-4B1F-9A58-0B9399987C9F}</ProjectGuid>
     <RootNamespace>Game-d3xp</RootNamespace>
     <SccProjectName>
@@ -41,35 +41,43 @@
     <SccProvider>
     </SccProvider>
     <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug with inlines|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines and memory log|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -148,12 +156,26 @@
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <TargetName>GameX86</TargetName>
+    <IntDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\intermediate\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\$(Projectname)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\build\$(PlatformName)\$(Configuration)\d3xp\</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe" d3xp
-</Command>
+      <Command>cd "$(SolutionDir)..\build\Win32\$(Configuration)\d3xp\"</Command>
     </PreBuildEvent>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DisableSpecificWarnings>4100;4127;4244;4245;4267;4714;4996;4068;4458;4005</DisableSpecificWarnings>
+      <UseFullPaths>false</UseFullPaths>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <TreatSpecificWarningsAsErrors>4840;4306;4311;4312;4302</TreatSpecificWarningsAsErrors>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines and memory log|Win32'">
     <PreBuildEvent>
@@ -189,13 +211,33 @@
 "build\Win32\$(Configuration)\TypeInfo.exe" d3xp
 </Command>
     </PreBuildEvent>
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);_ALLOW_KEYWORD_MACROS</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe" d3xp
-</Command>
+      <Command>cd "$(SolutionDir)..\build\Win32\$(Configuration)\d3xp\"</Command>
     </PreBuildEvent>
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);_ALLOW_KEYWORD_MACROS;GAME_DLL;_D3XP;CTF;D3_ARCH="x86";D3_SIZEOFPTR=8;D3_OSTYPE="windows";WINVER=0x0501;_WIN32_WINNT=0x0501</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <StringPooling>true</StringPooling>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DisableSpecificWarnings>4100;4127;4244;4245;4267;4714;4996;4068;4458</DisableSpecificWarnings>
+      <UseFullPaths>false</UseFullPaths>
+      <TreatSpecificWarningsAsErrors>4840;4306;4311;4312;4302</TreatSpecificWarningsAsErrors>
+    </ClCompile>
+    <Link>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="d3xp\ai\AAS.cpp" />

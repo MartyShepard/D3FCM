@@ -79,6 +79,8 @@ bool rvGEProperties::Create ( HWND parent, bool visible )
 							NULL, 
 							win32.hInstance, 
 							this );
+
+
 							
 	if ( !mWnd )
 	{
@@ -199,7 +201,7 @@ Window Procedure for the properties window
 */
 LRESULT CALLBACK rvGEProperties::WndProc ( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
-	rvGEProperties* kv = (rvGEProperties*) GetWindowLong ( hWnd, GWL_USERDATA );
+	rvGEProperties* kv = (rvGEProperties*) GetWindowLongPtr ( hWnd, GWLP_USERDATA );
 
 	if ( kv && kv->mGrid.ReflectMessage ( hWnd, msg, wParam, lParam ) )
 	{
@@ -271,13 +273,17 @@ LRESULT CALLBACK rvGEProperties::WndProc ( HWND hWnd, UINT msg, WPARAM wParam, L
 			// Attach the class to the window first
 			cs = (LPCREATESTRUCT) lParam;
 			kv = (rvGEProperties*) cs->lpCreateParams;
-			SetWindowLong ( hWnd, GWL_USERDATA, (LONG)kv );
+			SetWindowLongPtr( hWnd, GWLP_USERDATA, (LONG_PTR)kv );
 
-			kv->mGrid.Create ( hWnd, 999, PGS_ALLOWINSERT );					
+			kv->mGrid.Create ( hWnd, 999, PGS_ALLOWINSERT );	
+
+			/* Marty -- Font Change, using Fixed for better View*/
+			HFONT hFont = CreateFont(14, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Segoe UI Mono");
+			SendMessage(kv->mGrid.GetWindow(), WM_SETFONT, (WPARAM)hFont, TRUE);
 			
 			kv->SetWorkspace ( NULL );
 			kv->Update ( );
-			
+
 			break;
 		}
 

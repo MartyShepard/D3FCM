@@ -122,11 +122,11 @@ void CEntKeyFindReplace::OnReplace()
 	}
 	else
 	{
-		if (!m_strFindValue.IsEmpty() || GetYesNo(va("Empty FIND <value> means replace any existing ( & non-blank ) <value> for <key> \"%s\"\n\nProceed?",(LPCSTR)m_strFindKey)))
+		if (!m_strFindValue.IsEmpty() || GetYesNo(va("Empty FIND <value> means replace any existing ( & non-blank ) <value> for <key> \"%s\"\n\nProceed?",(LPCSTR)m_strFindKey.GetString())))
 		{
 			// another check, if they're trying to do a replace with a missing replace key, it'll just delete found keys...
 			//
-			if ((!m_strReplaceKey.IsEmpty() && !m_strReplaceValue.IsEmpty()) || GetYesNo(va("Empty REPLACE <key> or <value> fields will just delete all occurence of <key> \"%s\"\n\nProceed?",m_strFindKey)))
+			if ((!m_strReplaceKey.IsEmpty() && !m_strReplaceValue.IsEmpty()) || GetYesNo(va("Empty REPLACE <key> or <value> fields will just delete all occurence of <key> \"%s\"\n\nProceed?",m_strFindKey.GetString())))
 			{
 				if (GetYesNo("Sure?"))
 				{

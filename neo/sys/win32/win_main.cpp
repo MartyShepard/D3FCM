@@ -549,8 +549,16 @@ int Sys_ListFiles( const char *directory, const char *extension, idStrList &list
 		extension = "";
 	}
 
+#ifdef WIN32 // Marty: Backslash Change
+	if (extension[0] == '/')
+		extension = "\\";
+#endif
 	// passing a slash as extension will find directories
+#ifdef WIN32 // Marty: Backslash Change
+	if (extension[0] == '\\' && extension[1] == 0) {
+#else
 	if ( extension[0] == '/' && extension[1] == 0 ) {
+#endif
 		extension = "";
 		flag = 0;
 	} else {
@@ -662,6 +670,15 @@ int Sys_DLL_Load( const char *dllName ) {
 		// since we can't have LoadLibrary load only from the specified path, check it did the right thing
 		char loadedPath[ MAX_OSPATH ];
 		GetModuleFileName( libHandle, loadedPath, sizeof( loadedPath ) - 1 );
+
+		// Marty: Backslash Change
+		// A fix to load dll with fs_savepath where ".\\" 
+		// begins eq: +set fs_savepath .\saves\
+		// Using the right loadpath and copy to dllname variable
+		if (dllName[0] == '.' && dllName[1] == '\\') {
+			dllName = loadedPath;
+		}
+
 		if ( idStr::IcmpPath( dllName, loadedPath ) ) {
 			Sys_Printf( "ERROR: LoadLibrary '%s' wants to load '%s'\n", dllName, loadedPath );
 			Sys_DLL_Unload( (int)libHandle );
@@ -1002,13 +1019,27 @@ void Sys_Init( void ) {
 
 	if( win32.osversion.dwPlatformId == VER_PLATFORM_WIN32_NT ) {
 		if( win32.osversion.dwMajorVersion <= 4 ) {
-			win32.sys_arch.SetString( "WinNT (NT)" );
+			win32.sys_arch.SetString( "Windows NT (NT)" );
 		} else if( win32.osversion.dwMajorVersion == 5 && win32.osversion.dwMinorVersion == 0 ) {
-			win32.sys_arch.SetString( "Win2K (NT)" );
+			win32.sys_arch.SetString( "Windows 2K (NT)" );
 		} else if( win32.osversion.dwMajorVersion == 5 && win32.osversion.dwMinorVersion == 1 ) {
-			win32.sys_arch.SetString( "WinXP (NT)" );
+			win32.sys_arch.SetString( "Windows XP (NT)" );
 		} else if ( win32.osversion.dwMajorVersion == 6 ) {
-			win32.sys_arch.SetString( "Vista" );
+			if( win32.osversion.dwMinorVersion == 0 ) {
+				win32.sys_arch.SetString( "Windows Vista" );
+			} else if ( win32.osversion.dwMinorVersion == 1 ) {
+				win32.sys_arch.SetString( "Windows 7" );
+			} else if ( win32.osversion.dwMinorVersion == 2 ) {
+				win32.sys_arch.SetString( "Windows 8" );
+			} else if ( win32.osversion.dwMinorVersion == 3 ){
+				win32.sys_arch.SetString( "Windows 8.1" );
+			} else {
+				win32.sys_arch.SetString( "Unknown NT 6.x variant" );
+			}
+		} else if (win32.osversion.dwMajorVersion == 10 && win32.osversion.dwMinorVersion >= 0) {
+			win32.sys_arch.SetString("Windows 10");
+		} else if (win32.osversion.dwMajorVersion == 11 && win32.osversion.dwMinorVersion >= 0) {
+			win32.sys_arch.SetString("Windows 11");
 		} else {
 			win32.sys_arch.SetString( "Unknown NT variant" );
 		}
@@ -1126,6 +1157,25 @@ Sys_Shutdown
 ================
 */
 void Sys_Shutdown( void ) {
+
+	qwglCopyContext = NULL;
+	qwglCreateContext = NULL;
+	qwglCreateLayerContext = NULL;
+	qwglDeleteContext = NULL;
+	qwglDescribeLayerPlane = NULL;
+	qwglGetCurrentContext = NULL;
+	qwglGetCurrentDC = NULL;
+	qwglGetLayerPaletteEntries = NULL;
+	qwglGetProcAddress = NULL;
+	qwglMakeCurrent = NULL;
+	qwglRealizeLayerPalette = NULL;
+	qwglSetLayerPaletteEntries = NULL;
+	qwglShareLists = NULL;
+	qwglSwapLayerBuffers = NULL;
+	qwglUseFontBitmaps = NULL;
+	qwglUseFontOutlines = NULL;
+	qwglSwapBuffers = NULL;
+
 	CoUninitialize();
 }
 
@@ -1326,7 +1376,7 @@ EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *Excepti
 			"%s\n",
 			com_version.GetString(),
 			ExceptionRecord->ExceptionCode,
-			ExceptionRecord->ExceptionAddress,
+			(unsigned int)ExceptionRecord->ExceptionAddress,
 			GetExceptionCodeInfo( ExceptionRecord->ExceptionCode ),
 			ContextRecord->Eax, ContextRecord->Ebx,
 			ContextRecord->Ecx, ContextRecord->Edx,
@@ -1366,7 +1416,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	const HCURSOR hcurSave = ::SetCursor( LoadCursor( 0, IDC_WAIT ) );
 
-	Sys_SetPhysicalWorkMemory( 192 << 20, 1024 << 20 );
+	//Sys_SetPhysicalWorkMemory( 192 << 20, 1024 << 20 );
+	Sys_SetPhysicalWorkMemory(192 << 20, 3072 << 20);
 
 	Sys_GetCurrentMemoryStatus( exeLaunchMemoryStats );
 

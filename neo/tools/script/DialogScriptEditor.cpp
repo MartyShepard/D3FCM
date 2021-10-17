@@ -35,6 +35,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "../comafx/DialogGoToLine.h"
 #include "DialogScriptEditor.h"
 
+#include <io.h>
+#include "../../ui/DeviceContext.h"
+
 #ifdef ID_DEBUG_MEMORY
 #undef new
 #undef DEBUG_NEW
@@ -287,12 +290,12 @@ void DialogScriptEditor::OpenFile( const char *fileName ) {
 	rect.bottom = rect.top + numLines * (FONT_HEIGHT+8) + 24 + 56;
 	if ( rect.right < initialRect.right ) {
 		rect.right = initialRect.right;
-	} else if ( rect.right - rect.left > 1024 ) {
+	} else if ( rect.right - rect.left > 1024) {
 		rect.right = rect.left + 1024;
 	}
 	if ( rect.bottom < initialRect.bottom ) {
 		rect.bottom = initialRect.bottom;
-	} else if ( rect.bottom - rect.top > 768 ) {
+	} else if ( rect.bottom - rect.top > 768) {
 		rect.bottom = rect.top + 768;
 	}
 	MoveWindow( rect );
@@ -365,16 +368,18 @@ ScriptEditorInit
 void ScriptEditorInit( const idDict *spawnArgs ) {
 
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the script editor in fullscreen mode.\n"
-					"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf( "Cannot run the script editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart or press alt & return \n" );
 		return;
 	}
 
 	if ( g_ScriptDialog == NULL ) {
+		
+		Sys_GrabMouseCursor(false);
+
 		InitAfx();
 		g_ScriptDialog = new DialogScriptEditor();
 	}
-
+	
 	if ( g_ScriptDialog->GetSafeHwnd() == NULL) {
 		g_ScriptDialog->Create( IDD_DIALOG_SCRIPTEDITOR );
 /*
@@ -382,12 +387,14 @@ void ScriptEditorInit( const idDict *spawnArgs ) {
 		CRect rct;
 		g_ScriptDialog->SetWindowPos( NULL, rct.left, rct.top, 0, 0, SWP_NOSIZE );
 */
+		//g_ScriptDialog->SetWindowPos( NULL, NULL, NULL, 1280, 720, SWP_NOMOVE );
 	}
 
 	idKeyInput::ClearStates();
 
 	g_ScriptDialog->ShowWindow( SW_SHOW );
 	g_ScriptDialog->SetFocus();
+	
 
 	if ( spawnArgs ) {
 	}
@@ -421,6 +428,10 @@ void ScriptEditorShutdown( void ) {
 	delete g_ScriptDialog;
 	g_ScriptDialog = NULL;
 	scriptEvents.Clear();
+	
+	/*Marty*/
+	Sys_GrabMouseCursor(true);
+
 }
 
 

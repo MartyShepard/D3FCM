@@ -820,6 +820,10 @@ public:
 	static idCVar			s_reverbFeedback;
 	static idCVar			s_enviroSuitVolumeScale;
 	static idCVar			s_skipHelltimeFX;
+
+	static idCVar			cmp_DefaultOGGLoading;		/* Marty -- Compatibility OGG Loading*/
+	static idCVar			s_ShowSampleWAVLoading;		/* Marty -- Show Sample File loading */
+	static idCVar			s_ShowSampleOGGLoading;		/* Marty -- Show Sample File loading */
 };
 
 extern	idSoundSystemLocal	soundSystemLocal;

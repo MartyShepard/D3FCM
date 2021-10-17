@@ -424,6 +424,8 @@ private:
 	static idCVar			fs_game_base;
 	static idCVar			fs_caseSensitiveOS;
 	static idCVar			fs_searchAddons;
+	static idCVar			fs_addonpath;
+	static idCVar			fs_addon;
 
 	backgroundDownload_t *	backgroundDownloads;
 	backgroundDownload_t	defaultBackgroundDownload;
@@ -489,6 +491,7 @@ idCVar	idFileSystemLocal::fs_cdpath( "fs_cdpath", "", CVAR_SYSTEM | CVAR_INIT, "
 idCVar	idFileSystemLocal::fs_devpath( "fs_devpath", "", CVAR_SYSTEM | CVAR_INIT, "" );
 idCVar	idFileSystemLocal::fs_game( "fs_game", "", CVAR_SYSTEM | CVAR_INIT | CVAR_SERVERINFO, "mod path" );
 idCVar  idFileSystemLocal::fs_game_base( "fs_game_base", "", CVAR_SYSTEM | CVAR_INIT | CVAR_SERVERINFO, "alternate mod path, searched after the main fs_game path, before the basedir" );
+idCVar	idFileSystemLocal::fs_addonpath("fs_addonpath", "", CVAR_SYSTEM | CVAR_INIT | CVAR_SERVERINFO, "Fullpath for Mods or Maps eq: L:\\Sortet Games\\Doom 3\\Storage Mods\\My Mod\\<fs_game Gamename>");
 #ifdef WIN32
 idCVar	idFileSystemLocal::fs_caseSensitiveOS( "fs_caseSensitiveOS", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 #else
@@ -1048,6 +1051,9 @@ int idFileSystemLocal::ReadFile( const char *relativePath, void **buffer, ID_TIM
 		common->FatalError( "Filesystem call made without initialization\n" );
 	}
 
+	#if defined DEBUG 
+		TRACE("idFileSystemLocal::ReadFile '%s'\r", relativePath);	/* Marty Trace*/
+	#endif
 	if ( !relativePath || !relativePath[0] ) {
 		common->FatalError( "idFileSystemLocal::ReadFile with empty name\n" );
 	}
@@ -1715,22 +1721,29 @@ idModList *idFileSystemLocal::ListMods( void ) {
 
 	idModList	*list = new idModList;
 
-	const char	*search[ 4 ];
+	const char	*search[ 5 ];
 	int			isearch;
 
 	search[0] = fs_savepath.GetString();
 	search[1] = fs_devpath.GetString();
 	search[2] = fs_basepath.GetString();
 	search[3] = fs_cdpath.GetString();
+	search[4] = fs_addonpath.GetString();
 
-	for ( isearch = 0; isearch < 4; isearch++ ) {
-
+	for ( isearch = 0; isearch < 5; isearch++ ) {
+		// skip empty cdpath or such, so we don't search C:\ or / -_-
+		if (search[isearch][0] == '\0') {
+			continue;
+		}
 		dirs.Clear();
 		pk4s.Clear();
 
 		// scan for directories
-		ListOSFiles( search[ isearch ], "/", dirs );
-
+#ifdef WIN32
+		ListOSFiles( search[ isearch ], "\\", dirs );
+#else
+		ListOSFiles(search[isearch], "/", dirs);
+#endif
 		dirs.Remove( "." );
 		dirs.Remove( ".." );
 		dirs.Remove( "base" );
@@ -2170,6 +2183,15 @@ idFileSystemLocal::SetupGameDirectories
 ================
 */
 void idFileSystemLocal::SetupGameDirectories( const char *gameName ) {
+	// setup addonpath
+	if (fs_addonpath.GetString()[0] && gameName)  {
+		AddGameDirectory(fs_addonpath.GetString(), gameName);
+	}
+	else if (fs_addonpath.GetString()[0] && !gameName) {
+		AddGameDirectory(fs_addonpath.GetString(), "");
+	}
+
+
 	// setup cdpath
 	if ( fs_cdpath.GetString()[0] ) {
 		AddGameDirectory( fs_cdpath.GetString(), gameName );
@@ -2596,6 +2618,7 @@ int idFileSystemLocal::ValidateDownloadPakForChecksum( int checksum, char path[ 
 	testList.Append( fs_devpath.GetString() );
 	testList.Append( fs_basepath.GetString() );
 	testList.Append( fs_cdpath.GetString() );
+	testList.Append( fs_addonpath.GetString());
 	for ( i = 0; i < testList.Num(); i ++ ) {
 		if ( testList[ i ].Length() && !testList[ i ].Icmpn( pak->pakFilename, testList[ i ].Length() ) ) {
 			relativePath = pak->pakFilename.c_str() + testList[ i ].Length() + 1;
@@ -2850,6 +2873,7 @@ void idFileSystemLocal::Init( void ) {
 	common->StartupVariable( "fs_copyfiles", false );
 	common->StartupVariable( "fs_restrict", false );
 	common->StartupVariable( "fs_searchAddons", false );
+	common->StartupVariable( "fs_addonpath", false);
 
 #if !ID_ALLOW_D3XP
 	if ( fs_game.GetString()[0] && !idStr::Icmp( fs_game.GetString(), "d3xp" ) ) {
@@ -3589,16 +3613,16 @@ back ground loading
 idFileSystemLocal::CurlWriteFunction
 =================
 */
-size_t idFileSystemLocal::CurlWriteFunction( void *ptr, size_t size, size_t nmemb, void *stream ) {
-	backgroundDownload_t *bgl = (backgroundDownload_t *)stream;
-	if ( !bgl->f ) {
+size_t idFileSystemLocal::CurlWriteFunction(void* ptr, size_t size, size_t nmemb, void* stream) {
+	backgroundDownload_t* bgl = (backgroundDownload_t*)stream;
+	if (!bgl->f) {
 		return size * nmemb;
 	}
-	#ifdef _WIN32
-		return _write( static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr()->_file, ptr, size * nmemb );
-	#else
-		return fwrite( ptr, size, nmemb, static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr() );
-	#endif
+#ifdef _WIN32
+	return _write(_fileno(static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr()), ptr, size * nmemb);
+#else
+	return fwrite(ptr, size, nmemb, static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr());
+#endif
 }
 
 /*
@@ -3638,13 +3662,13 @@ dword BackgroundDownloadThread( void *parms ) {
 
 		bgl->next = NULL;
 
-		if ( bgl->opcode == DLTYPE_FILE ) {
+		if (bgl->opcode == DLTYPE_FILE) {
 			// use the low level read function, because fread may allocate memory
-			#if defined(WIN32)
-				_read( static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr()->_file, bgl->file.buffer, bgl->file.length );
-			#else
-				fread(  bgl->file.buffer, bgl->file.length, 1, static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr() );
-			#endif
+#if defined(WIN32)
+			_read(_fileno(static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr()), bgl->file.buffer, bgl->file.length);
+#else
+			fread(bgl->file.buffer, bgl->file.length, 1, static_cast<idFile_Permanent*>(bgl->f)->GetFilePtr());
+#endif
 			bgl->completed = true;
 		} else {
 #if ID_ENABLE_CURL

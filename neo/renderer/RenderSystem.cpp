@@ -412,6 +412,122 @@ void idRenderSystemLocal::DrawSmallChar( int x, int y, int ch, const idMaterial 
 }
 
 /*
+=====================
+idRenderSystemLocal::DrawBigChar
+=====================
+*/
+void idRenderSystemLocal::DrawBigChar(int x, int y, int ch, const idMaterial* material) {
+	int row, col;
+	float frow, fcol;
+	float size;
+
+	ch &= 255;
+
+	if (ch == ' ') {
+		return;
+	}
+
+	if (y < -BIGCHAR_HEIGHT) {
+		return;
+	}
+
+	row = ch >> 4;
+	col = ch & 15;
+
+	frow = row * 0.0625f;
+	fcol = col * 0.0625f;
+	size = 0.0625f;
+
+	DrawStretchPic(x, y, BIGCHAR_WIDTH, BIGCHAR_HEIGHT,
+		fcol, frow,
+		fcol + size, frow + size,
+		material);
+}
+/*
+===================== ========================================================================================MARTY
+idRenderSystemLocal::DrawSmallCons (a Copy from DrawSmallChar)
+
+small chars are drawn at native screen resolution
+===================== 
+*/
+
+void idRenderSystemLocal::DrawSmallCons(int x, int y, int ch, const idMaterial* material, int fntsizeh, int fntsizew) {
+
+	int row, col;
+	float frow, fcol;
+	float size;
+
+	ch &= 255;
+
+	if (ch == ' ' ) {
+		return;
+	}
+
+	if (y < -fntsizeh) {
+		return;
+	}
+
+	row = ch >> 4;
+	col = ch & 15;
+
+	frow = row * 0.0625f;
+	fcol = col * 0.0625f;
+	size = 0.0625f;
+
+	DrawStretchPic(x, y, fntsizew, fntsizeh,
+		fcol, frow,
+		fcol + size, frow + size,
+		material);
+	
+}
+
+/*
+=====================
+idRenderSystemLocal::DrawSmallString[Color]
+
+Draws a multi-colored string with a drop shadow, optionally forcing
+to a fixed color.
+
+Coordinates are at 640 by 480 virtual resolution
+=====================
+*/
+void idRenderSystemLocal::DrawSmallStringCon(int x, int y, const char* string, const idVec4& setColor, bool forceColor, const idMaterial *material, int fntsizeh, int fntsizew) {
+
+
+	idVec4		color;
+	const unsigned char* s;
+	int			xx;
+
+	// draw the colored text
+	s = (const unsigned char*)string;
+	xx = x;
+	SetColor(setColor);
+	while (*s) {
+		if (idStr::IsColor((const char*)s)) {
+			if (!forceColor) {
+				if (*(s + 1) == C_COLOR_DEFAULT) {
+					SetColor(setColor);
+				}
+				else {
+					color = idStr::ColorForIndex(*(s + 1));
+					color[3] = setColor[3];
+					SetColor(color);
+				}
+			}
+			s += 2;
+			continue;
+		}
+		DrawSmallCons(xx, y, *s, material , fntsizeh, fntsizew);
+		xx += fntsizew;
+		s++;
+	}
+	SetColor(colorWhite);
+
+}
+//===================== ========================================================================================MARTY
+
+
+/*
 ==================
 idRenderSystemLocal::DrawSmallString[Color]
 
@@ -421,6 +537,7 @@ to a fixed color.
 Coordinates are at 640 by 480 virtual resolution
 ==================
 */
+
 void idRenderSystemLocal::DrawSmallStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) {
 	idVec4		color;
 	const unsigned char	*s;
@@ -451,38 +568,10 @@ void idRenderSystemLocal::DrawSmallStringExt( int x, int y, const char *string, 
 	SetColor( colorWhite );
 }
 
-/*
-=====================
-idRenderSystemLocal::DrawBigChar
-=====================
-*/
-void idRenderSystemLocal::DrawBigChar( int x, int y, int ch, const idMaterial *material ) {
-	int row, col;
-	float frow, fcol;
-	float size;
 
-	ch &= 255;
 
-	if ( ch == ' ' ) {
-		return;
-	}
 
-	if ( y < -BIGCHAR_HEIGHT ) {
-		return;
-	}
 
-	row = ch >> 4;
-	col = ch & 15;
-
-	frow = row * 0.0625f;
-	fcol = col * 0.0625f;
-	size = 0.0625f;
-
-	DrawStretchPic( x, y, BIGCHAR_WIDTH, BIGCHAR_HEIGHT,
-					   fcol, frow, 
-					   fcol + size, frow + size, 
-					   material );
-}
 
 /*
 ==================
@@ -631,6 +720,19 @@ void idRenderSystemLocal::BeginFrame( int windowWidth, int windowHeight ) {
 		return;
 	}
 
+	// DG: r_lockSurfaces only works properly if r_useScissor is disabled
+	if (r_lockSurfaces.IsModified()) {
+		static bool origUseScissor = true;
+		r_lockSurfaces.ClearModified();
+		if (r_lockSurfaces.GetBool()) {
+			origUseScissor = r_useScissor.GetBool();
+			r_useScissor.SetBool(false);
+		}
+		else {
+			r_useScissor.SetBool(origUseScissor);
+		}
+	} // DG end
+
 	// determine which back end we will use
 	SetBackEndRenderer();
 
@@ -641,6 +743,11 @@ void idRenderSystemLocal::BeginFrame( int windowWidth, int windowHeight ) {
 		windowWidth = tiledViewport[0];
 		windowHeight = tiledViewport[1];
 	}
+
+	// DG: save the original size, so editors don't mess up the game viewport
+	//     with their tiny (texture-preview etc) viewports.
+	origWidth = glConfig.vidWidth;
+	origHeight = glConfig.vidHeight;
 
 	glConfig.vidWidth = windowWidth;
 	glConfig.vidHeight = windowHeight;
@@ -755,6 +862,12 @@ void idRenderSystemLocal::EndFrame( int *frontEndMsec, int *backEndMsec ) {
 		}
 	}
 
+	// DG: restore the original size that was set before BeginFrame() overwrote it
+	//     with its function-arguments, so editors don't mess up our viewport.
+	//     (unsure why/how this at least *kinda* worked in original Doom3,
+	//      maybe glConfig.vidWidth/Height was reset if the window gained focus or sth)
+	glConfig.vidWidth = origWidth;
+	glConfig.vidHeight = origHeight;
 }
 
 /*

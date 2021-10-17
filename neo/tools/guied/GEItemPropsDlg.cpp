@@ -412,7 +412,7 @@ bool rvGEItemPropsTextPage::Init ( void )
 	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTALIGN ), CB_ADDSTRING, 0, (LPARAM)"Center" );
 	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTALIGN ), CB_ADDSTRING, 0, (LPARAM)"Right" );
 
-	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_ADDSTRING, 0, (LONG)"<default>" );
+	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_ADDSTRING, 0, (LONG_PTR)"<default>" );
 	
 	idFileList *folders;
 	int		  i;
@@ -424,7 +424,7 @@ bool rvGEItemPropsTextPage::Init ( void )
 			continue;
 		}
 		
-		SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_ADDSTRING, 0, (LONG)folders->GetFile(i) );
+		SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_ADDSTRING, 0, (LONG_PTR)folders->GetFile(i) );
 	}
 
 	fileSystem->FreeFileList( folders );
@@ -547,7 +547,7 @@ bool rvGEItemPropsTextPage::SetActive ( void )
 	int   fontSel;
 	font.StripQuotes ( );
 	font.StripPath ( );
-	fontSel = SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_FINDSTRING, -1, (LONG)font.c_str () );
+	fontSel = SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_FINDSTRING, -1, (LONG_PTR)font.c_str () );
 	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_SETCURSEL, 0, 0 );
 	SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_SETCURSEL, fontSel==-1?0:fontSel, 0 );
 
@@ -633,7 +633,7 @@ bool rvGEItemPropsTextPage::KillActive ( void )
 		else
 		{
 			char fontName[MAX_PATH];
-			SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_GETLBTEXT, fontSel, (LONG)fontName );
+			SendMessage ( GetDlgItem ( mPage, IDC_GUIED_ITEMTEXTFONT ), CB_GETLBTEXT, fontSel, (LONG_PTR)fontName );
 			mDict->Set ( "font", idStr("\"fonts/") + idStr(fontName) + idStr("\"" ) );			
 		}
 		
@@ -670,6 +670,7 @@ public:
 	virtual bool	SetActive		( void );
 	virtual int		HandleMessage	( UINT msg, WPARAM wParam, LPARAM lParam );
 
+
 protected:
 
 	idDict*				mDict;
@@ -681,6 +682,10 @@ rvGEItemPropsKeysPage::rvGEItemPropsKeysPage ( idDict* dict, rvGEWindowWrapper* 
 	mDict = dict;
 	mWrapper = wrapper;
 }
+
+idStr nKey;
+idStr nVal;
+bool  bItemIsChanged = false;
 
 INT_PTR CALLBACK ModifyItemKeyDlg_WndProc ( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
@@ -703,10 +708,19 @@ INT_PTR CALLBACK ModifyItemKeyDlg_WndProc ( HWND hwnd, UINT msg, WPARAM wParam, 
 				SetFocus ( GetDlgItem ( hwnd, IDC_GUIED_ITEMVALUE ) );
 				SendMessage( GetDlgItem ( hwnd, IDC_GUIED_ITEMVALUE ), EM_SETSEL, 0, -1 ); 
 				
-				SetWindowText ( hwnd, "New Item Key" );
+				if (idStr::Icmp(keyValue->GetKey(), ""))
+				{
+					// Dont allow editing the name keyname 
+					EnableWindow(GetDlgItem(hwnd, IDC_GUIED_ITEMKEY), FALSE);
+					SetWindowText(hwnd, "Modify Item Key");
+				}
+				else {
+
+					SetWindowText(hwnd, "New Item Key");
+				}
 			}
 			
-			SetWindowLong ( hwnd, GWL_USERDATA, lParam );
+			SetWindowLongPtr ( hwnd, GWLP_USERDATA, lParam );
 			return FALSE;
 		}
 	
@@ -717,8 +731,7 @@ INT_PTR CALLBACK ModifyItemKeyDlg_WndProc ( HWND hwnd, UINT msg, WPARAM wParam, 
 				{
 					char key[1024];
 					char value[1024];
-					
-					const idKeyValue* keyValue = (const idKeyValue*) GetWindowLong ( hwnd, GWL_USERDATA );
+					const idKeyValue* keyValue = (const idKeyValue*) GetWindowLongPtr ( hwnd, GWLP_USERDATA );
 					
 					GetWindowText ( GetDlgItem ( hwnd, IDC_GUIED_ITEMKEY ), key, 1024 );
 					GetWindowText ( GetDlgItem ( hwnd, IDC_GUIED_ITEMVALUE ), value, 1024 );
@@ -733,13 +746,18 @@ INT_PTR CALLBACK ModifyItemKeyDlg_WndProc ( HWND hwnd, UINT msg, WPARAM wParam, 
 						//keyValue->GetKey() = key;
 						//keyValue->GetValue = value;
 
+						/* Marty -- Add new Items */
+						nKey = (idStr)key;
+						nVal = (idStr)value;
+						bItemIsChanged = true;
 						EndDialog ( hwnd, 1);
 					}
 					break;
 				}
 					
 				case IDCANCEL:
-					EndDialog ( hwnd, 0 );
+					bItemIsChanged = false;
+					EndDialog ( hwnd, 1 ); /* Marty -- was 0, 1 end this dialog, while looped 1 */
 					break;
 			}
 			break;
@@ -789,18 +807,28 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 					mDict->Set( "guied_temp", "" );
 					const idKeyValue* key = mDict->FindKey ( "guied_temp" );
 					
+					nKey = "";
+					nVal = "";
+
 					idStr old = key->GetValue();
 					while ( 1 )
-					{					
+					{			
 						if ( DialogBoxParam ( gApp.GetInstance (), MAKEINTRESOURCE(IDD_GUIED_ITEMKEY), mPage, ModifyItemKeyDlg_WndProc, (LPARAM)key ) )
 						{
+
+							if (bItemIsChanged == false) {
+								mDict->Delete("guied_temp");
+								break;
+							}
+
 							idStr finalValue;						
 
-							finalValue = key->GetValue();
+							/* Marty Changed to add  new items */
+							finalValue = nKey.c_str()/* key->GetValue() */;
 							if ( !mWrapper->VerfiyStateKey ( key->GetKey(), finalValue ) )
 							{
 								finalValue = "\"";
-								finalValue += key->GetValue();
+								finalValue += nKey.c_str()/* key->GetValue() */;
 								finalValue += "\"";
 								if ( !mWrapper->VerfiyStateKey ( key->GetKey(), finalValue ) )
 								{
@@ -808,19 +836,22 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 									continue;
 								}
 							}
+							
+							/* Marty -- delete guied_temp or this is in the command list....*/
+							mDict->Delete("guied_temp");
 
-							mDict->Set( key->GetKey(), finalValue );
+							mDict->Set( /* key->GetValue() */ nKey.c_str(), /* finalValue */nVal.c_str());
 
 							LVITEM		item;
 							ZeroMemory ( &item, sizeof(item) );
 							item.mask = LVIF_TEXT|LVIF_PARAM;
 							item.iItem = ListView_GetItemCount ( list );
-							item.pszText = (LPSTR)key->GetKey().c_str ( );
-							item.lParam = (LONG) key;
+							item.pszText = (LPSTR)nKey.c_str()/* key->GetValue() */;
+							item.lParam = (LONG_PTR) key;
 							int index = ListView_InsertItem ( list, &item );
 						
 							finalValue.StripQuotes ( );
-							ListView_SetItemText ( list, index, 1, (LPSTR)finalValue.c_str ( ) );
+							ListView_SetItemText ( list, index, 1, (LPSTR)nVal.c_str()/* finalValue.c_str() */);
 							
 							break;
 						}
@@ -850,13 +881,17 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 						{
 							if ( DialogBoxParam ( gApp.GetInstance (), MAKEINTRESOURCE(IDD_GUIED_ITEMKEY), mPage, ModifyItemKeyDlg_WndProc, (LPARAM)key ) )
 							{
+
+								if (bItemIsChanged == false) {									
+									break;
+								}
 								idStr finalValue;						
 							
 								finalValue = key->GetValue();
 								if ( !mWrapper->VerfiyStateKey ( key->GetKey(), finalValue ) )
 								{
 									finalValue = "\"";
-									finalValue += key->GetValue();
+									finalValue += nKey.c_str()/* key->GetValue() */;
 									finalValue += "\"";
 									if ( !mWrapper->VerfiyStateKey ( key->GetKey(), finalValue ) )
 									{
@@ -866,13 +901,14 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 								}
 
 								// FIXME: MrE is this the right thing todo?
-								mDict->Set( key->GetKey(), finalValue );
+								/* Marty -- this works */
+								mDict->Set( key->GetKey(),/* finalValue */nVal.c_str());
 								//key->GetValue() = finalValue;
 
 								ListView_SetItemText ( list, index, 0, (LPSTR)key->GetKey().c_str() );
 
 								finalValue.StripQuotes ( );
-								ListView_SetItemText ( list, index, 1, (LPSTR)finalValue.c_str() );							
+								ListView_SetItemText ( list, index, 1, (LPSTR)nVal.c_str()/* finalValue.c_str() */);
 								break;
 							}
 						}						
@@ -882,6 +918,7 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 				
 				case IDC_GUIED_DELETEKEY:
 				{
+
 					HWND list = GetDlgItem ( mPage, IDC_GUIED_ITEMKEYS );
 					int index = ListView_GetNextItem ( list, -1, LVNI_SELECTED );
 					if ( index != -1 )
@@ -892,10 +929,14 @@ int rvGEItemPropsKeysPage::HandleMessage ( UINT msg, WPARAM wParam, LPARAM lPara
 						ListView_GetItem ( list, &item );
 						const idKeyValue* key = (const idKeyValue*)item.lParam;
 						assert ( key );
-						
-						mDict->Delete ( key->GetKey() );
-						
-						ListView_DeleteItem ( list, index );
+
+						int res = gApp.MessageBox(va("Delete key '%s'", key->GetKey().c_str()), MB_YESNO | MB_ICONWARNING);
+						if (res == 6)
+						{
+							mDict->Delete(key->GetKey());
+
+							ListView_DeleteItem(list, index);
+						}
 					}					
 					break;
 				}
@@ -940,6 +981,11 @@ bool rvGEItemPropsKeysPage::Init ( void )
 	col.cx = (rWindow.right - rWindow.left) - col.cx;
 	ListView_InsertColumn ( list, 1, &col );
 	
+	/* Marty -- Font Change, using Fixed for better View*/
+	HFONT hFont = CreateFont(13, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, TEXT("Segoe UI Mono"));
+	SendMessage(list, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+
 	return true;
 }
 
@@ -965,6 +1011,8 @@ bool rvGEItemPropsKeysPage::SetActive ( void )
 	// Delete anything already in there
 	ListView_DeleteAllItems ( list );
 
+	if ( mDict != NULL )
+	{
 	// Add each key in the properties dictionary
 	for ( i = 0; i < mDict->GetNumKeyVals(); i ++ )
 	{
@@ -977,14 +1025,15 @@ bool rvGEItemPropsKeysPage::SetActive ( void )
 		item.mask = LVIF_TEXT|LVIF_PARAM;
 		item.iItem = ListView_GetItemCount ( list );
 		item.pszText = (LPSTR)key->GetKey().c_str ( );
-		item.lParam = (LONG) key;
+			item.lParam = (LONG_PTR) key;
 		int index = ListView_InsertItem ( list, &item );
 		
 		idStr value;
 		value = key->GetValue();		
 		value.StripQuotes ( );
 		ListView_SetItemText ( list, index, 1, (LPSTR)value.c_str() );
-	}		
+		}
+	}
 
 	return true;
 }
@@ -1077,6 +1126,11 @@ bool rvGEItemPropsGeneralPage::SetActive ( void )
 	
 	gApp.GetOptions().SetLastOptionsPage ( RVITEMPROPS_GENERAL );
 
+	if ( mDict == NULL )
+	{
+		return false;
+	}
+	
 	SetWindowText ( GetDlgItem ( mPage, IDC_GUIED_ITEMNAME ), idStr(mDict->GetString ( "name", "unnamed" )).StripQuotes ( ) );	
 
 	enable = !IsExpression ( mDict->GetString ( "visible", "1" ) );
@@ -1116,6 +1170,11 @@ Applys the settings currently stored in the property page back into the attached
 */
 bool rvGEItemPropsGeneralPage::KillActive ( void )
 {
+	if ( mDict == NULL )
+	{
+		return false;
+	}
+	
 	char temp[1024];
 		
 	GetWindowText ( GetDlgItem(mPage,IDC_GUIED_ITEMNAME), temp, 1024 );	
@@ -1211,7 +1270,7 @@ bool GEItemPropsDlg_DoModal ( HWND parent, idWindow* window, idDict& dict )
 	propsp[RVITEMPROPS_GENERAL].pszTemplate	= MAKEINTRESOURCE(IDD_GUIED_ITEMPROPS_GENERAL);
 	propsp[RVITEMPROPS_GENERAL].pfnDlgProc	= rvGEPropertyPage::WndProc;
 	propsp[RVITEMPROPS_GENERAL].pszTitle	= "General";
-	propsp[RVITEMPROPS_GENERAL].lParam		= (LONG)new rvGEItemPropsGeneralPage ( &dict, wrapper->GetWindowType ( ) );
+	propsp[RVITEMPROPS_GENERAL].lParam		= (LONG_PTR)new rvGEItemPropsGeneralPage ( &dict, wrapper->GetWindowType ( ) );
 
 	propsp[RVITEMPROPS_IMAGE].dwSize		= sizeof(PROPSHEETPAGE);
 	propsp[RVITEMPROPS_IMAGE].dwFlags		= PSP_USETITLE;
@@ -1219,7 +1278,7 @@ bool GEItemPropsDlg_DoModal ( HWND parent, idWindow* window, idDict& dict )
 	propsp[RVITEMPROPS_IMAGE].pszTemplate	= MAKEINTRESOURCE(IDD_GUIED_ITEMPROPS_IMAGE);
 	propsp[RVITEMPROPS_IMAGE].pfnDlgProc	= rvGEPropertyPage::WndProc;
 	propsp[RVITEMPROPS_IMAGE].pszTitle		= "Image";
-	propsp[RVITEMPROPS_IMAGE].lParam		= (LONG)new rvGEItemPropsImagePage ( &dict );;
+	propsp[RVITEMPROPS_IMAGE].lParam		= (LONG_PTR)new rvGEItemPropsImagePage ( &dict );;
 
 	propsp[RVITEMPROPS_TEXT].dwSize			= sizeof(PROPSHEETPAGE);
 	propsp[RVITEMPROPS_TEXT].dwFlags		= PSP_USETITLE;
@@ -1227,7 +1286,7 @@ bool GEItemPropsDlg_DoModal ( HWND parent, idWindow* window, idDict& dict )
 	propsp[RVITEMPROPS_TEXT].pszTemplate	= MAKEINTRESOURCE(IDD_GUIED_ITEMPROPS_TEXT);
 	propsp[RVITEMPROPS_TEXT].pfnDlgProc		= rvGEPropertyPage::WndProc;
 	propsp[RVITEMPROPS_TEXT].pszTitle		= "Text";
-	propsp[RVITEMPROPS_TEXT].lParam			= (LONG)new rvGEItemPropsTextPage ( &dict );;
+	propsp[RVITEMPROPS_TEXT].lParam			= (LONG_PTR)new rvGEItemPropsTextPage ( &dict );;
 
 	propsp[RVITEMPROPS_KEYS].dwSize			= sizeof(PROPSHEETPAGE);
 	propsp[RVITEMPROPS_KEYS].dwFlags		= PSP_USETITLE;
@@ -1235,7 +1294,7 @@ bool GEItemPropsDlg_DoModal ( HWND parent, idWindow* window, idDict& dict )
 	propsp[RVITEMPROPS_KEYS].pszTemplate	= MAKEINTRESOURCE(IDD_GUIED_ITEMPROPS_KEYS);
 	propsp[RVITEMPROPS_KEYS].pfnDlgProc		= rvGEPropertyPage::WndProc;
 	propsp[RVITEMPROPS_KEYS].pszTitle		= "Keys";
-	propsp[RVITEMPROPS_KEYS].lParam			= (LONG)new rvGEItemPropsKeysPage ( &dict, wrapper );
+	propsp[RVITEMPROPS_KEYS].lParam			= (LONG_PTR)new rvGEItemPropsKeysPage ( &dict, wrapper );
 
 	propsh.dwSize			= sizeof(PROPSHEETHEADER);
 	propsh.nStartPage		= gApp.GetOptions().GetLastOptionsPage ( );

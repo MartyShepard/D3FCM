@@ -38,6 +38,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <direct.h>
 #include <io.h>
 #include <conio.h>
+#include <d3d11.h>
 
 #ifndef	ID_DEDICATED
 #include <comdef.h>
@@ -152,6 +153,45 @@ int Sys_GetVideoRam( void ) {
 		CComVariant varSize;
 		hr = spInstance->Get( CComBSTR( _T( "AdapterRAM" ) ), 0, &varSize, 0, 0 );
 		if ( hr == S_OK ) {
+
+			if (varSize.intVal < 0) /* is minus ?*/
+			{
+				/*
+				* Marty: Minimalictic Code to catch the correct Videomemory ... bum
+				*	     WMI section root Win32_VideoController\Adpateram 
+				*		 ist not more really existent in newer WinOS -/with 
+				*		 newer graphic cards ~2013.. i think (need d3d11.h/d3d11.lib)
+				*		 For compatibility put this in the sub routine.
+				*/
+				D3D_FEATURE_LEVEL  FeatureLevelsRequested[6] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_3, D3D_FEATURE_LEVEL_9_2, D3D_FEATURE_LEVEL_9_1 };
+
+				UINT               numLevelsRequested		= 6;
+				D3D_FEATURE_LEVEL  FeatureLevelsSupported;
+
+				ID3D11Device* ppDevice;
+				ID3D11DeviceContext* ppImmediateContext;
+
+				hr = D3D11CreateDevice(NULL,D3D_DRIVER_TYPE_HARDWARE,NULL,0,FeatureLevelsRequested,numLevelsRequested,D3D11_SDK_VERSION,&ppDevice,&FeatureLevelsSupported,&ppImmediateContext);
+				
+				if (FAILED(hr)) {
+					return hr;
+				}
+
+				IDXGIDevice* pDXGIDevice;
+				IDXGIAdapter* pDXGIAdapter;
+				ppDevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&pDXGIDevice);
+				pDXGIDevice->GetParent(__uuidof(IDXGIAdapter), (void**)&pDXGIAdapter);
+
+				DXGI_ADAPTER_DESC desc;
+				pDXGIAdapter->GetDesc(&desc);
+
+				float NewSize = desc.DedicatedVideoMemory / 1024.0f / 1024.0f;
+
+				pDXGIAdapter->Release();
+				pDXGIDevice->Release();
+				return NewSize;
+			}
+				
 			retSize = varSize.intVal / ( 1024 * 1024 );
 			if ( retSize == 0 ) {
 				retSize = 64;

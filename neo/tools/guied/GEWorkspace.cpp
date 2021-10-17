@@ -38,6 +38,10 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../ui/BindWindow.h"
 #include "../../ui/RenderWindow.h"
 #include "../../ui/ChoiceWindow.h"
+/* Marty -- Added. Was missing. Gui Editor
+		    has saved sliderDef as windowDef
+*/
+#include "../../ui/SliderWindow.h"
 
 #include "GEApp.h"
 #include "GEItemPropsDlg.h"
@@ -53,8 +57,13 @@ If you have questions concerning this license or the applicable additional terms
 #include "GEHideModifier.h"
 #include "GEDeleteModifier.h"
 
-static float g_ZoomScales[rvGEWorkspace::ZOOM_MAX] = { 0, 0.25f, 0.33f, 0.50f, 0.66f, 1.0f, 1.5f, 2.0f, 3.0f };
-
+//static float g_ZoomScales[rvGEWorkspace::ZOOM_MAX] = { 0, 0.25f, 0.33f, 0.50f, 0.66f, 1.0f, 1.5f, 2.0f, 3.0f };
+static float g_ZoomScales[rvGEWorkspace::ZOOM_MAX] = { 0, 0.10f, 0.15f, 0.20f, 0.25f, 0.30f, 0.35f, 0.40f, 0.50f, 0.55f, 0.60f, 0.65f, 0.70f, 0.75f, 0.80f, 0.85f, 0.90f, 0.95f, 1.00f,
+														  1.10f, 1.15f, 1.20f, 1.25f, 1.30f, 1.35f, 1.40f, 1.50f, 1.55f, 1.60f, 1.65f, 1.70f, 1.75f, 1.80f, 1.85f, 1.90f, 1.95f, 2.00f,
+														  2.10f, 2.15f, 2.20f, 2.25f, 2.30f, 2.35f, 2.40f, 2.50f, 2.55f, 2.60f, 2.65f, 2.70f, 2.75f, 2.80f, 2.85f, 2.90f, 2.95f, 3.00f,
+														  3.10f, 3.20f, 3.30f, 3.40f, 3.50f, 3.60f, 3.70f, 3.80f, 3.90f, 4.00f, 4.10f, 4.20f, 4.30f, 4.40f, 4.50f, 4.60f, 4.70f, 4.80f, 4.90f, 5.00f,
+														  5.10f, 5.20f, 5.30f, 5.40f, 5.50f, 5.60f, 5.70f, 5.80f, 5.90f, 6.00f, 6.10f, 6.20f, 6.30f, 6.40f, 6.50f, 6.60f, 6.70f, 6.80f, 6.90f, 7.00f,
+														  7.10f, 7.20f, 7.30f, 7.40f, 7.50f, 7.60f, 7.70f, 7.80f, 7.90f, 8.00f, 8.10f, 8.20f, 8.30f, 8.40f, 8.50f, 8.60f, 8.70f, 8.80f, 8.90f, 9.00f};
 static const int ID_GUIED_SELECT_FIRST = 9800;
 static const int ID_GUIED_SELECT_LAST  = 9900;
 
@@ -144,7 +153,7 @@ bool rvGEWorkspace::Attach ( HWND wnd )
 
 	// Jam the workspace pointer into the userdata window long so 
 	// we can retrieve the workspace from the window later
-	SetWindowLong ( mWnd, GWL_USERDATA, (LONG) this );
+	SetWindowLongPtr( mWnd, GWLP_USERDATA, ( LONG_PTR ) this );
 	
 	UpdateTitle ( );
 	
@@ -162,7 +171,7 @@ void rvGEWorkspace::Detach ( void )
 {
 	assert ( mWnd );
 	
-	SetWindowLong ( mWnd, GWL_USERDATA, 0 );
+	SetWindowLongPtr ( mWnd, GWLP_USERDATA, 0 );
 	mWnd = NULL;
 }
 
@@ -273,6 +282,7 @@ void rvGEWorkspace::Render ( HDC hdc )
 	// Switch GL contexts to our dc
 	if (!qwglMakeCurrent( hdc, win32.hGLRC )) 
 	{
+		TRACE("ERROR: wglMakeCurrent failed.. Error:%i\n", qglGetError());
 		common->Printf("ERROR: wglMakeCurrent failed.. Error:%i\n", qglGetError());
 		common->Printf("Please restart Q3Radiant if the Map view is not working\n");
 	    return;
@@ -289,11 +299,11 @@ void rvGEWorkspace::Render ( HDC hdc )
 	qglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Render the workspace below
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	qglMatrixMode(GL_PROJECTION);
+	qglLoadIdentity();
 	qglOrtho(0,mWindowWidth, mWindowHeight, 0, -1, 1);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	qglMatrixMode(GL_MODELVIEW);
+	qglLoadIdentity();
 
 	qglColor3f ( mApplication->GetOptions().GetWorkspaceColor()[0], mApplication->GetOptions().GetWorkspaceColor()[1], mApplication->GetOptions().GetWorkspaceColor()[2] );	
 	qglBegin ( GL_QUADS );
@@ -337,11 +347,11 @@ void rvGEWorkspace::Render ( HDC hdc )
 	
 	qglViewport(0, 0, mWindowWidth, mWindowHeight );
 	qglScissor(0, 0, mWindowWidth, mWindowHeight );
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	qglMatrixMode(GL_PROJECTION);
+	qglLoadIdentity();
 	qglOrtho(0,mWindowWidth, mWindowHeight, 0, -1, 1);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	qglMatrixMode(GL_MODELVIEW);
+	qglLoadIdentity();
 
 	RenderGrid ( );
 	
@@ -580,31 +590,31 @@ void rvGEWorkspace::UpdateCursor ( rvGESelectionMgr::EHitTest type )
 	switch ( type )
 	{
 		case rvGESelectionMgr::HT_SELECT:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_ARROW) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_ARROW ) );
 			break;
 			
 		case rvGESelectionMgr::HT_MOVE:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_SIZEALL) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_SIZEALL ) );
 			break;
 
 		case rvGESelectionMgr::HT_SIZE_LEFT:
 		case rvGESelectionMgr::HT_SIZE_RIGHT:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_SIZEWE ) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_SIZEWE ) );
 			break;
 
 		case rvGESelectionMgr::HT_SIZE_TOP:
 		case rvGESelectionMgr::HT_SIZE_BOTTOM:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_SIZENS ) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_SIZENS ) );
 			break;
 
 		case rvGESelectionMgr::HT_SIZE_TOPRIGHT:
 		case rvGESelectionMgr::HT_SIZE_BOTTOMLEFT:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_SIZENESW ) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_SIZENESW ) );
 			break;
 
 		case rvGESelectionMgr::HT_SIZE_BOTTOMRIGHT:
 		case rvGESelectionMgr::HT_SIZE_TOPLEFT:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_SIZENWSE ) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_SIZENWSE ) );
 			break;
 	}
 }	
@@ -627,7 +637,7 @@ void rvGEWorkspace::UpdateCursor ( float x, float y )
 	}
 	else
 	{
-		SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_ARROW ) ) );
+		SetCursor ( LoadCursor ( NULL, IDC_ARROW ) );
 	}
 }
 
@@ -887,7 +897,7 @@ int	rvGEWorkspace::HandleRButtonDown ( WPARAM wParam, LPARAM lParam )
 		AppendMenu ( popup, MF_STRING|MF_ENABLED|(wrapper->IsSelected()?MF_CHECKED:0), ID_GUIED_SELECT_FIRST + i, mSelectMenu[i]->GetName() );
 	}
 
-	InsertMenu ( menu, 1, MF_POPUP|MF_BYPOSITION, (LONG) popup, "Select" );
+	InsertMenu ( menu, 1, MF_POPUP|MF_BYPOSITION, (UINT_PTR) popup, "Select" );
 
 	// Bring up the popup menu
 	ClientToScreen ( mWnd, &point );
@@ -1502,6 +1512,10 @@ idWindow* rvGEWorkspace::NewWindow ( idDict* state, rvGEWindowWrapper::EWindowTy
 
 		case rvGEWindowWrapper::WT_EDIT:
 			window = new idEditWindow ( mInterface->GetDesktop()->GetDC(), mInterface );
+			break;
+			/* Marty -- Added by default. was missing */
+		case rvGEWindowWrapper::WT_SLIDER:
+			window = new idSliderWindow(mInterface->GetDesktop()->GetDC(), mInterface);
 			break;
 			
 		default:

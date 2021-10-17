@@ -1157,7 +1157,7 @@ static void Com_ScriptDebugger_f( const idCmdArgs &args ) {
 	// Make sure it wasnt on the command line
 	if ( !( com_editors & EDITOR_DEBUGGER ) ) {
 		common->Printf( "Script debugger is currently disabled\n" );
-		// DebuggerClientLaunch();
+		//DebuggerClientLaunch();
 	}
 }
 
@@ -1426,9 +1426,11 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 		cvarSystem->SetCVarInteger( "image_useCompression", 0, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_ignoreHighQuality", 0, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "s_maxSoundsPerShader", 0, CVAR_ARCHIVE );
-		cvarSystem->SetCVarInteger( "r_mode", 5, CVAR_ARCHIVE );
+		cvarSystem->SetCVarInteger( "r_mode", -2, CVAR_ARCHIVE ); /* Was 5, is now -2 Desktop Screenmode*/
 		cvarSystem->SetCVarInteger( "image_useNormalCompression", 0, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "r_multiSamples", 0, CVAR_ARCHIVE );
+		cvarSystem->SetCVarInteger("con_fontsize_height", 11, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("con_fontsize_width", 5, CVAR_ARCHIVE);
 	} else if ( com_machineSpec.GetInteger() == 2 ) {
 		cvarSystem->SetCVarString( "image_filter", "GL_LINEAR_MIPMAP_LINEAR", CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_anisotropy", 1, CVAR_ARCHIVE );
@@ -1448,8 +1450,10 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 		cvarSystem->SetCVarInteger( "image_ignoreHighQuality", 0, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "s_maxSoundsPerShader", 0, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_useNormalCompression", 0, CVAR_ARCHIVE );
-		cvarSystem->SetCVarInteger( "r_mode", 4, CVAR_ARCHIVE );
+		cvarSystem->SetCVarInteger( "r_mode", -2, CVAR_ARCHIVE ); /* Was 4, is now -2 Desktop Screenmode*/
 		cvarSystem->SetCVarInteger( "r_multiSamples", 0, CVAR_ARCHIVE );
+		cvarSystem->SetCVarInteger("con_fontsize_height", 11, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("con_fontsize_width", 5, CVAR_ARCHIVE);
 	} else if ( com_machineSpec.GetInteger() == 1 ) {
 		cvarSystem->SetCVarString( "image_filter", "GL_LINEAR_MIPMAP_LINEAR", CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_anisotropy", 1, CVAR_ARCHIVE );
@@ -1485,7 +1489,7 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 		cvarSystem->SetCVarInteger( "image_downSizeBump", 1, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_downSizeSpecularLimit", 64, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "image_downSizeBumpLimit", 256, CVAR_ARCHIVE );
-		cvarSystem->SetCVarInteger( "r_mode", 3	, CVAR_ARCHIVE );
+		cvarSystem->SetCVarInteger( "r_mode", 4, CVAR_ARCHIVE ); /* Was 3*/
 		cvarSystem->SetCVarInteger( "image_useNormalCompression", 2, CVAR_ARCHIVE );
 		cvarSystem->SetCVarInteger( "r_multiSamples", 0, CVAR_ARCHIVE );
 	}
@@ -1530,6 +1534,22 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 	}
 	if ( nv10or20 ) {
 		cvarSystem->SetCVarInteger( "image_useNormalCompression", 1, CVAR_ARCHIVE );
+	}
+
+	// Marty Extended System Konfiguration
+	if (Sys_GetSystemRam() >= 1024 )
+	{
+		cvarSystem->SetCVarInteger("image_downSizeLimit", 4096, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("image_downSizeBumpLimit", 4096, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("image_downSizeSpecularLimit", 4096, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("image_lodbias", -2, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("image_anisotropy", 16, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("r_multiSamples", 16, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("gui_mediumFontLimit", 0, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("gui_smallFontLimit", 0, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("con_fontsize_height", 11, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("con_fontsize_width", 5, CVAR_ARCHIVE);
+		cvarSystem->SetCVarInteger("r_shadows", 1, CVAR_ARCHIVE);		
 	}
 
 #if MACOS_X
@@ -1923,7 +1943,11 @@ void GetFileList(const char* dir, const char* ext, idStrList& list) {
 
 	//Recurse Subdirectories
 	idStrList dirList;
+#ifdef WIN32 // Marty: Backslash Change
+	Sys_ListFiles(dir, "\\", dirList);
+#else
 	Sys_ListFiles(dir, "/", dirList);
+#endif
 	for(int i = 0; i < dirList.Num(); i++) {
 		if(dirList[i] == "." || dirList[i] == "..") {
 			continue;
@@ -2098,7 +2122,7 @@ LocalizeGuis_f
 void Com_LocalizeGuis_f( const idCmdArgs &args ) {
 
 	if ( args.Argc() != 2 ) {
-		common->Printf( "Usage: localizeGuis <all | gui>\n" );
+		common->Printf( "Usage: localizeGuis <all | gui (for gui = file.gui or file.pd for d3xp) >\n" );
 		return;
 	}
 
@@ -2799,6 +2823,8 @@ void idCommonLocal::Init( int argc, const char **argv, const char *cmdline ) {
 
 		// print engine version
 		Printf( "%s\n", version.string );
+
+		Printf( "DOOM3 Port For Classic Mods by Marty Shepard\n" );
 
 		// initialize key input/binding, done early so bind command exists
 		idKeyInput::Init();

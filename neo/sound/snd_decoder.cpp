@@ -181,6 +181,9 @@ int idWaveFile::OpenOGG( const char* strFileName, waveformatex_t *pwfx ) {
 		return -1;
 	}
 
+	if (idSoundSystemLocal::s_ShowSampleOGGLoading.GetInteger() == 1) /* Marty -- Show OGG Sample Loading*/
+		common->Printf("^3Open Sample File: ^4OGG ^0%s\n", strFileName);
+
 	mfileTime = mhmmio->Timestamp();
 
 	vorbis_info *vi = ov_info( ov, -1 );
@@ -521,7 +524,7 @@ int idSampleDecoderLocal::DecodeOGG( idSoundSample *sample, int sampleOffset44k,
 			return 0;
 		}
 		if ( sample->nonCacheData == NULL ) {
-			assert( false );	// this should never happen
+			//assert( false );	// this should never happen
 			failed = true;
 			return 0;
 		}

@@ -47,6 +47,7 @@ public:
 
 	void				RunNamedEvent( const char* eventName );
 	
+	virtual bool		InJectResolutions();
 private:
 	virtual bool		ParseInternalVar(const char *name, idParser *src);
 	void				CommonInit();

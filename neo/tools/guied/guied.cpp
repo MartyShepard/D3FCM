@@ -84,6 +84,7 @@ GUIEditorRun
 Run a frame 
 ================
 */
+static int sysMsgTime = 0; // DG: only used by GUIEditorRun(); no reason to put this into Win32Vars_t
 void GUIEditorRun() 
 {
     MSG			msg;
@@ -97,12 +98,12 @@ void GUIEditorRun()
 		}
 
 		// save the msg time, because wndprocs don't have access to the timestamp
-		if ( win32.sysMsgTime && win32.sysMsgTime > (int)msg.time ) 
+		if ( sysMsgTime && sysMsgTime > (int)msg.time )
 		{
 		} 
 		else 
 		{
-			win32.sysMsgTime = msg.time;
+			sysMsgTime = msg.time;
 		}
 
 		if ( gApp.TranslateAccelerator ( &msg ) )

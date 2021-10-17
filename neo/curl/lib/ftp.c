@@ -982,7 +982,7 @@ ftp_pasv_verbose(struct connectdata *conn,
    *
    * IPv4-only code section
    */
-
+#pragma warning(disable:4996) 
   struct in_addr in;
   struct hostent * answer;
 

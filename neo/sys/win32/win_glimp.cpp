@@ -189,6 +189,7 @@ void GLimp_SetGamma( unsigned short red[256], unsigned short green[256], unsigne
 	unsigned short table[3][256];
 	int i;
 
+
 	if ( !win32.hDC ) {
 		return;
 	}
@@ -488,7 +489,7 @@ static bool GLW_InitDriver( glimpParms_t parms ) {
 		return false;
 	}
 	common->Printf( "succeeded\n" );
-
+	
 	return true;
 }
 
@@ -581,6 +582,12 @@ static bool GLW_CreateWindow( glimpParms_t parms ) {
 
 		exstyle = 0;
 		stylebits = WINDOW_STYLE|WS_SYSMENU;
+
+		// Marty - Borderless. Remove the specific GWLStylew Bits
+		if (parms.borderless) {
+			stylebits = WS_VISIBLE | WS_CLIPSIBLINGS | WS_POPUP;
+		}
+
 		AdjustWindowRect (&r, stylebits, FALSE);
 
 		w = r.right - r.left;
@@ -621,11 +628,27 @@ static bool GLW_CreateWindow( glimpParms_t parms ) {
 		return false;
 	}
 
+	// Marty - Borderless. center only in non fullscreen with r_borderless = true
+	if (parms.borderless && !parms.fullScreen) {
+			w = win32.desktopWidth; // this overwrite winx pos due center
+			h = win32.desktopHeight; // this overwrite winy pos due center
+			x = (win32.desktopWidth - parms.width ) / 2;
+			y = (win32.desktopHeight - parms.height) / 2;
+
+			common->StartupVariable("win_xpos", x);
+			common->StartupVariable("win_ypos", y);
+
+			//MoveWindow(win32.hWnd, x, y, parms.width, parms.height, FALSE);
+			SetWindowPos(win32.hWnd, HWND_TOP, x, y, parms.width, parms.height, SWP_NOSIZE);/*SWP_NOMOVE, SWP_NOSIZE ,SWP_NOZORDER */
+			
+	}
+
 	::SetTimer( win32.hWnd, 0, 100, NULL );
 
 	ShowWindow( win32.hWnd, SW_SHOW );
 	UpdateWindow( win32.hWnd );
-	common->Printf( "...created window @ %d,%d (%dx%d)\n", x, y, w, h );
+
+	common->Printf( "...created %s window @ Pos X=%d, Pos Y=%d (%dx%d)\n", parms.borderless ? "borderless" : "", x, y, w, h);
 
 	if ( !GLW_InitDriver( parms ) ) {
 		ShowWindow( win32.hWnd, SW_HIDE );
@@ -637,8 +660,17 @@ static bool GLW_CreateWindow( glimpParms_t parms ) {
 	SetForegroundWindow( win32.hWnd );
 	SetFocus( win32.hWnd );
 
+
 	glConfig.isFullscreen = parms.fullScreen;
 
+	/*Marty -- Borderless*/
+	if (parms.borderless && !parms.fullScreen)
+	{
+		Sys_GrabMouseCursor(true);
+		SetCapture(win32.hWnd);
+		
+
+	} 
 	return true;
 }
 
@@ -1008,6 +1040,7 @@ void GLimp_SwapBuffers( void ) {
 	// wglSwapinterval is a windows-private extension,
 	// so we must check for it here instead of portably
 	//
+
 	if ( r_swapInterval.IsModified() ) {
 		r_swapInterval.ClearModified();
 

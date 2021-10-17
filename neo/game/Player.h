@@ -434,6 +434,8 @@ public:
 	void					RemoveWeapon( const char *weap );
 	bool					CanShowWeaponViewmodel( void ) const;
 
+	bool					CanShowCrosshair( void ) const; 	// jkrige - crosshair control
+
 	void					AddAIKill( void );
 	void					SetSoulCubeProjectile( idProjectile *projectile );
 
@@ -543,6 +545,9 @@ private:
 	int						weaponSwitchTime;
 	bool					weaponEnabled;
 	bool					showWeaponViewModel;
+
+	bool					showCrosshair; 			// jkrige - crosshair control
+
 
 	const idDeclSkin *		skin;
 	const idDeclSkin *		powerUpSkin;

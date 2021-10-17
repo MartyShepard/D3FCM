@@ -1784,7 +1784,7 @@ CSyntaxRichEditCtrl::OnSize
 ================
 */
 void CSyntaxRichEditCtrl::OnSize( UINT nType, int cx, int cy ) {
-	m_TextDoc->Freeze( NULL );
+	m_TextDoc->Freeze(NULL);
 
 	CRichEditCtrl::OnSize( nType, cx, cy );
 

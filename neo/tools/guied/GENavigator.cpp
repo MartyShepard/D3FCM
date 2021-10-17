@@ -103,6 +103,27 @@ bool rvGENavigator::Create ( HWND parent, bool visible )
 				 	
 	Show ( visible );
 	
+	//HDC hDC;
+	//hDC = GetDC(mWnd);
+	//int nHeight = -MulDiv(24, GetDeviceCaps(hDC, LOGPIXELSY), 72);
+	//HFONT	FontPageKeys;
+	//FontPageKeys = CreateFont(nHeight, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Segoe UI Mono");
+
+	//SendMessage(mWnd, WM_SETFONT, (WPARAM)FontPageKeys, 0);
+
+	TEXTMETRIC tm;
+	HDC dc;
+	dc = GetDC(mWnd);
+	GetTextMetrics(dc, &tm);
+	ReleaseDC(mWnd, dc);
+
+	LOGFONT lf;
+	ZeroMemory(&lf, sizeof(lf));
+	lf.lfHeight = tm.tmHeight;
+	strcpy(lf.lfFaceName, "Segoe UI Mono");
+
+	SendMessage(mWnd, WM_SETFONT, (WPARAM)CreateFontIndirect(&lf), 0);
+
 	return true;							
 }
 
@@ -139,7 +160,7 @@ Window Procedure
 */
 LRESULT CALLBACK rvGENavigator::WndProc ( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
-	rvGENavigator* nav = (rvGENavigator*) GetWindowLong ( hWnd, GWL_USERDATA );
+	rvGENavigator* nav = (rvGENavigator*) GetWindowLongPtr ( hWnd, GWLP_USERDATA );
 
 	switch ( msg )
 	{
@@ -273,21 +294,26 @@ LRESULT CALLBACK rvGENavigator::WndProc ( HWND hWnd, UINT msg, WPARAM wParam, LP
 			// Attach the class to the window first
 			cs = (LPCREATESTRUCT) lParam;
 			nav = (rvGENavigator*) cs->lpCreateParams;
-			SetWindowLong ( hWnd, GWL_USERDATA, (LONG)nav );
+			SetWindowLongPtr( hWnd, GWLP_USERDATA, (LONG_PTR)nav );
 
 			// Create the List view
 			nav->mTree = CreateWindowEx ( 0, "SysListView32", "", WS_VSCROLL|WS_CHILD|WS_VISIBLE|LVS_REPORT|LVS_OWNERDRAWFIXED|LVS_NOCOLUMNHEADER|LVS_SHOWSELALWAYS, 0, 0, 0, 0, hWnd, (HMENU)IDC_GUIED_WINDOWTREE, win32.hInstance, 0 );
 			ListView_SetExtendedListViewStyle ( nav->mTree, LVS_EX_FULLROWSELECT );
 			ListView_SetBkColor ( nav->mTree, GetSysColor ( COLOR_3DFACE ) );
 			ListView_SetTextBkColor ( nav->mTree, GetSysColor ( COLOR_3DFACE ) );
-			nav->mListWndProc = (WNDPROC)GetWindowLong ( nav->mTree, GWL_WNDPROC );
-			SetWindowLong ( nav->mTree, GWL_USERDATA, (LONG)nav );
-			SetWindowLong ( nav->mTree, GWL_WNDPROC, (LONG)ListWndProc );
+			nav->mListWndProc = (WNDPROC)GetWindowLongPtr ( nav->mTree, GWLP_WNDPROC );
+			SetWindowLongPtr( nav->mTree, GWLP_USERDATA, (LONG_PTR)nav );
+			SetWindowLongPtr( nav->mTree, GWLP_WNDPROC, (LONG_PTR)ListWndProc );
+
+			/* Marty -- Font Change, using Fixed for better View*/
+			HFONT hFont = CreateFont(14, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,DEFAULT_PITCH | FF_DONTCARE, TEXT("Segoe UI Mono"));
+			SendMessage(nav->mTree, WM_SETFONT, (WPARAM)hFont, TRUE);
 
 			// Insert the only column
 			col.mask = 0;	
 			ListView_InsertColumn ( nav->mTree, 0, &col );
-							
+			
+
 			break;
 		}
 	
@@ -429,7 +455,7 @@ Window Procedure for the embedded list control
 */
 LRESULT CALLBACK rvGENavigator::ListWndProc ( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
-	rvGENavigator* nav = (rvGENavigator*) GetWindowLong ( hWnd, GWL_USERDATA );
+	rvGENavigator* nav = (rvGENavigator*) GetWindowLongPtr ( hWnd, GWLP_USERDATA );
 	assert ( nav );
 	
 	switch ( msg )
@@ -472,7 +498,7 @@ void rvGENavigator::AddWindow ( idWindow* window )
 	ZeroMemory ( &item, sizeof(item) );
 	item.mask = LVIF_PARAM|LVIF_STATE|LVIF_IMAGE;
 	item.iItem = ListView_GetItemCount ( mTree );	
-	item.lParam = (LONG) window;
+	item.lParam = (LONG_PTR) window;
 	item.iImage = 0;
 	item.state = rvGEWindowWrapper::GetWrapper(window)->IsSelected ()? LVIS_SELECTED:0;
 	item.stateMask = LVIS_SELECTED;

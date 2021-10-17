@@ -444,8 +444,7 @@ DeclBrowserInit
 void DeclBrowserInit( const idDict *spawnArgs ) {
 
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the declaration editor in fullscreen mode.\n"
-					"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf( "Cannot run the declaration editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart.\n" );
 		return;
 	}
 
@@ -455,6 +454,11 @@ void DeclBrowserInit( const idDict *spawnArgs ) {
 	}
 
 	if ( g_DeclDialog->GetSafeHwnd() == NULL) {
+
+		/*Marty*/
+		Sys_GrabMouseCursor(false);
+		SetCapture(false);
+
 		g_DeclDialog->Create( IDD_DIALOG_DECLBROWSER );
 /*
 		// FIXME: restore position
@@ -499,6 +503,9 @@ DeclBrowserShutdown
 void DeclBrowserShutdown( void ) {
 	delete g_DeclDialog;
 	g_DeclDialog = NULL;
+
+	/*Marty*/
+	Sys_GrabMouseCursor(false);
 }
 
 /*

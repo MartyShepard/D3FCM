@@ -508,21 +508,46 @@ static HMODULE hOpenAL = NULL;
 ===============
 Sys_LoadOpenAL
 ===============
+
+Marty -- Change Openal32.dll Search
 */
+
 bool Sys_LoadOpenAL( void ) {
+
 #if ID_OPENAL
 	const char *sym;
 
-	if ( hOpenAL ) {
+    char d3Root[MAX_PATH] = "";
+    char d3Base[MAX_PATH] = "";
+
+    GetCurrentDirectoryA(MAX_PATH, d3Root);
+    GetCurrentDirectoryA(MAX_PATH, d3Base);
+
+    strcat(d3Root, "\\");
+    strcat(d3Base, "\\base\\");
+
+    strcat(d3Root, idSoundSystemLocal::s_libOpenAL.GetString());
+    strcat(d3Base, idSoundSystemLocal::s_libOpenAL.GetString());
+
+    if ( hOpenAL )
+    {
 		return true;
 	}
 
-	hOpenAL = LoadLibrary( idSoundSystemLocal::s_libOpenAL.GetString() );
-	if ( !hOpenAL ) {
+    hOpenAL = LoadLibrary(d3Root);
+    if (!hOpenAL) 
+    {
+        hOpenAL = LoadLibrary(d3Base); /* Try in base*/
+    }
+
+    if (!hOpenAL)
+    {
 		common->Warning( "LoadLibrary %s failed.", idSoundSystemLocal::s_libOpenAL.GetString() );
 		return false;
 	}
-	if ( ( sym = InitializeIDAL( hOpenAL ) ) ) {
+
+	if ( ( sym = InitializeIDAL( hOpenAL ) ) )
+    {
 		common->Warning( "GetProcAddress %s failed.", sym );
 		FreeLibrary( hOpenAL );
 		hOpenAL = NULL;

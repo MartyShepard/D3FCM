@@ -1310,6 +1310,11 @@ idPlayer::idPlayer() {
 #endif
 	showWeaponViewModel		= true;
 
+
+	// jkrige - crosshair control
+	showCrosshair			= true;
+
+
 	skin					= NULL;
 	powerUpSkin				= NULL;
 	baseSkinName			= "";
@@ -1493,6 +1498,10 @@ void idPlayer::Init( void ) {
 	harvest_lock			= false;
 #endif
 	showWeaponViewModel		= GetUserInfo()->GetBool( "ui_showGun" );
+
+
+	// jkrige - crosshair control
+	showCrosshair			= GetUserInfo()->GetBool( "ui_showCrosshair" );
 
 
 	lastDmgTime				= 0;
@@ -1770,8 +1779,15 @@ void idPlayer::Spawn( void ) {
 		if ( spawnArgs.GetString( "cursor", "", temp ) ) {
 			cursor = uiManager->FindGui( temp, true, gameLocal.isMultiplayer, gameLocal.isMultiplayer );
 		}
-		if ( cursor ) {
-			cursor->Activate( true, gameLocal.time );
+		if (cursor) {
+			// DG: make it scale to 4:3 so crosshair looks properly round
+			//     yes, like so many scaling-related things this is a bit hacky
+			//     and note that this is special cased in StateChanged and you
+			//     can *not* generally set windowDef properties like this.
+			cursor->SetStateBool("scaleto43", true);
+			cursor->StateChanged(gameLocal.time); // DG end
+
+			cursor->Activate(true, gameLocal.time);
 		}
 
 		objectiveSystem = uiManager->FindGui( "guis/pda.gui", true, false, true );
@@ -2130,6 +2146,11 @@ void idPlayer::Save( idSaveGame *savefile ) const {
 	savefile->WriteBool( weaponEnabled );
 	savefile->WriteBool( showWeaponViewModel );
 
+
+	// jkrige - crosshair control
+	savefile->WriteBool( showCrosshair );
+
+
 	savefile->WriteSkin( skin );
 	savefile->WriteSkin( powerUpSkin );
 	savefile->WriteString( baseSkinName );
@@ -2398,6 +2419,11 @@ void idPlayer::Restore( idRestoreGame *savefile ) {
 	savefile->ReadBool( weaponEnabled );
 	savefile->ReadBool( showWeaponViewModel );
 
+
+	// jkrige - crosshair control
+	savefile->ReadBool( showCrosshair );
+
+
 	savefile->ReadSkin( skin );
 	savefile->ReadSkin( powerUpSkin );
 	savefile->ReadString( baseSkinName );
@@ -2459,6 +2485,12 @@ void idPlayer::Restore( idRestoreGame *savefile ) {
 	savefile->ReadInt( focusTime );
 	savefile->ReadObject( reinterpret_cast<idClass *&>( focusVehicle ) );
 	savefile->ReadUserInterface( cursor );
+	// DG: make it scale to 4:3 so crosshair looks properly round
+	//     yes, like so many scaling-related things this is a bit hacky
+	//     and note that this is special cased in StateChanged and you
+	//     can *not* generally set windowDef properties like this.
+	cursor->SetStateBool("scaleto43", true);
+	cursor->StateChanged(gameLocal.time); // DG end
 
 	savefile->ReadInt( oldMouseX );
 	savefile->ReadInt( oldMouseY );
@@ -2911,6 +2943,10 @@ bool idPlayer::UserInfoChanged( bool canModify ) {
 
 	userInfo = GetUserInfo();
 	showWeaponViewModel = userInfo->GetBool( "ui_showGun" );
+
+
+	// jkrige - crosshair control
+	showCrosshair		= GetUserInfo()->GetBool( "ui_showCrosshair" );
 
 	if ( !gameLocal.isMultiplayer ) {
 		return false;
@@ -9970,6 +10006,19 @@ idPlayer::CanShowWeaponViewmodel
 bool idPlayer::CanShowWeaponViewmodel( void ) const {
 	return showWeaponViewModel;
 }
+
+
+// jkrige - crosshair control - begin
+/*
+===============
+idPlayer::CanShowWeaponViewmodel
+===============
+*/
+bool idPlayer::CanShowCrosshair( void ) const {
+	return showCrosshair;
+}
+// jkrige - crosshair control - end
+
 
 /*
 ===============

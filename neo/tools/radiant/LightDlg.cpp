@@ -781,8 +781,7 @@ void CLightDlg::UpdateDialog( bool updateChecks )
 
 void LightEditorInit( const idDict *spawnArgs ) {
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the light editor in fullscreen mode.\n"
-					"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf( "Cannot run the light editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart.\n" );
 		return;
 	}
 
@@ -792,6 +791,10 @@ void LightEditorInit( const idDict *spawnArgs ) {
 	}
 
 	if ( g_LightDialog->GetSafeHwnd() == NULL ) {
+
+		/*Marty*/
+		Sys_GrabMouseCursor(false);
+
 		g_LightDialog->Create( IDD_DIALOG_LIGHT );
 		CRect rct;
 		LONG lSize = sizeof( rct );
@@ -828,6 +831,9 @@ void LightEditorRun( void ) {
 void LightEditorShutdown( void ) {
 	delete g_LightDialog;
 	g_LightDialog = NULL;
+
+	/*Marty*/
+	Sys_GrabMouseCursor(false);
 }
 
 void UpdateLightInspector() {

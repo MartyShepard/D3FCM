@@ -141,8 +141,7 @@ ParticleEditorInit
 void ParticleEditorInit( const idDict *spawnArgs ) {
 
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the particle editor in fullscreen mode.\n"
-			"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf( "Cannot run the particle editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart.\n" );
 		return;
 	}
 
@@ -152,6 +151,10 @@ void ParticleEditorInit( const idDict *spawnArgs ) {
 	}
 
 	if ( g_ParticleDialog->GetSafeHwnd() == NULL) {
+
+		/*Marty*/
+		Sys_GrabMouseCursor(false);
+
 		g_ParticleDialog->Create( IDD_DIALOG_PARTICLE_EDITOR );
 		/*
 		// FIXME: restore position
@@ -203,6 +206,8 @@ ParticleEditorShutdown
 void ParticleEditorShutdown( void ) {
 	delete g_ParticleDialog;
 	g_ParticleDialog = NULL;
+
+	Sys_GrabMouseCursor(true);
 }
 
 

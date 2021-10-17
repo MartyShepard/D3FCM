@@ -238,7 +238,7 @@ idEnumTypeInfo *idTypeInfoGen::ParseEnumType( const char *scope, bool isTemplate
 	idToken token;
 	idEnumTypeInfo *typeInfo;
 	idEnumValueInfo enumValue;
-	idStr valueString;
+	//idStr valueString;
 
 	typeInfo = new idEnumTypeInfo;
 	typeInfo->scope = scope;
@@ -482,7 +482,7 @@ void idTypeInfoGen::ParseScope( const char *scope, bool isTemplate, idParser &sr
 
 			if ( src.CheckTokenString( "<" ) ) {
 
-				int indent = 1;
+				indent = 1;
 				varType += "< ";
 				while( src.ReadToken( &token ) ) {
 					if ( token == "<" ) {
@@ -802,7 +802,7 @@ void idTypeInfoGen::CreateTypeInfo( const char *path ) {
 	idFileList *files;
 	idParser src;
 
-	common->Printf( "Type Info Generator v"TYPE_INFO_GEN_VERSION" (c) 2004 id Software\n" );
+	common->Printf( "Type Info Generator v" TYPE_INFO_GEN_VERSION " (c) 2004 id Software\n" );
 	common->Printf( "%s\n", path );
 
 	files = fileSystem->ListFilesTree( path, ".cpp" );
@@ -904,7 +904,7 @@ void idTypeInfoGen::WriteTypeInfo( const char *fileName ) const {
 		"/*\n"
 		"===================================================================================\n"
 		"\n"
-		"\tThis file has been generated with the Type Info Generator v"TYPE_INFO_GEN_VERSION" (c) 2004 id Software\n"
+		"\tThis file has been generated with the Type Info Generator v" TYPE_INFO_GEN_VERSION " (c) 2004 id Software\n"
 		"\n"
 		"\t%d constants\n"
 		"\t%d enums\n"

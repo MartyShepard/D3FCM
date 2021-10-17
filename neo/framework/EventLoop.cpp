@@ -152,6 +152,15 @@ void idEventLoop::ProcessEvent( sysEvent_t ev ) {
 		idKeyInput::PreliminaryKeyEvent( ev.evValue, ( ev.evValue2 != 0 ) );
 	}
 
+	//Marty - Fix for Letter U with circumflex accent or U-circumflex
+	if (ev.evType == SE_CHAR && ev.evValue == 234 ) {
+		ev.evValue = 101;
+	}
+	if (ev.evType == SE_CHAR && ev.evValue == 96) {
+		ev.evValue = 0;
+		ev.evType  = SE_NONE;
+	}
+
 	if ( ev.evType == SE_CONSOLE ) {
 		// from a text console outside the game window
 		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, (char *)ev.evPtr );

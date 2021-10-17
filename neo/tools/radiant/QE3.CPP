@@ -127,7 +127,7 @@ void Map_Snapshot() {
 
 		CString strFile;
 		while (bGo) {
-			strFile.Format("%s.%i", strNewPath, nCount);
+			strFile.Format("%s.%i", strNewPath.GetString(), nCount);
 			bGo = DoesFileExist(strFile, lSize);
 			nCount++;
 		}
@@ -139,12 +139,12 @@ void Map_Snapshot() {
 			common->Printf
 			(
 				"The snapshot files in the [%s] directory total more than 4 megabytes. You might consider cleaning the directory up.",
-				strOrgPath
+				strOrgPath.GetString()
 			);
 		}
 	}
 	else {
-		strMsg.Format("Snapshot save failed.. unabled to create directory\n%s", strOrgPath);
+		strMsg.Format("Snapshot save failed.. unabled to create directory\n%s", strOrgPath.GetString());
 		g_pParentWnd->MessageBox(strMsg);
 	}
 }

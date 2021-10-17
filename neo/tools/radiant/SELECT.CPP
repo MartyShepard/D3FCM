@@ -1762,7 +1762,7 @@ void Select_AllOfType() {
 			CString strName = e->eclass->name;
 			idStr strKey, strVal;
 			bool	bCriteria = g_Inspectors->GetSelectAllCriteria(strKey, strVal);
-			common->Printf("Selecting all %s(s)\n", strName);
+			common->Printf("Selecting all %s(s)\n", strName.GetString());
 			Select_Deselect();
 
 			for (b = active_brushes.next; b != &active_brushes; b = next) {
@@ -1774,7 +1774,7 @@ void Select_AllOfType() {
 
 				e = b->owner;
 				if (e != NULL) {
-					if ( idStr::Icmp(e->eclass->name, strName) == 0 ) {
+					if ( idStr::Icmp(e->eclass->name, strName.GetString()) == 0 ) {
 						bool	doIt = true;
 						if (bCriteria) {
 							CString str = ValueForKey(e, strKey);

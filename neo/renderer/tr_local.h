@@ -698,6 +698,7 @@ public:
 	virtual void			ShutdownOpenGL( void );
 	virtual bool			IsOpenGLRunning( void ) const;
 	virtual bool			IsFullScreen( void ) const;
+	virtual bool			IsBorderless(void) const;	// Marty - Borderless
 	virtual int				GetScreenWidth( void ) const;
 	virtual int				GetScreenHeight( void ) const;
 	virtual idRenderWorld *	AllocRenderWorld( void );
@@ -711,6 +712,7 @@ public:
 											bool clip = true, float x = 0.0f, float y = 0.0f, float w = 640.0f, float h = 0.0f );
 	virtual void			DrawStretchPic ( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material );
 
+
 	virtual void			DrawStretchTri ( idVec2 p1, idVec2 p2, idVec2 p3, idVec2 t1, idVec2 t2, idVec2 t3, const idMaterial *material );
 	virtual void			GlobalToNormalizedDeviceCoordinates( const idVec3 &global, idVec3 &ndc );
 	virtual void			GetGLSettings( int& width, int& height );
@@ -718,8 +720,14 @@ public:
 
 	virtual void			DrawSmallChar( int x, int y, int ch, const idMaterial *material );
 	virtual void			DrawSmallStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material );
+	
+	//Marty -- Console Fonst Size
+	virtual void			DrawSmallCons(int x, int y, int ch, const idMaterial* material, int fntsizeh, int fntsizew); /*DrawSmallChar*/
+	virtual void			DrawSmallStringCon(int x, int y, const char* string, const idVec4& setColor, bool forceColor, const idMaterial* material, int fntsizeh, int fntsizew);/*DrawSmallStringExt*/
+
 	virtual void			DrawBigChar( int x, int y, int ch, const idMaterial *material );
 	virtual void			DrawBigStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material );
+
 	virtual void			WriteDemoPics();
 	virtual void			DrawDemoPics();
 	virtual void			BeginFrame( int windowWidth, int windowHeight );
@@ -802,6 +810,11 @@ public:
 	class idGuiModel *		guiModel;
 	class idGuiModel *		demoGuiModel;
 
+	// DG: remember the original glConfig.vidWidth/Height values that get overwritten in BeginFrame()
+	//     so they can be reset in EndFrame() (Editors tend to mess up the viewport by using BeginFrame())
+	int						origWidth;
+	int						origHeight;
+
 	unsigned short			gammaTable[256];	// brightness / gamma modify this
 };
 
@@ -819,6 +832,8 @@ extern idCVar r_glDriver;				// "opengl32", etc
 extern idCVar r_mode;					// video mode number
 extern idCVar r_displayRefresh;			// optional display refresh rate option for vid mode
 extern idCVar r_fullscreen;				// 0 = windowed, 1 = full screen
+extern idCVar r_borderless;				// 0 = borderless window, 1 = bordered window, // Marty - Borderless
+extern idCVar r_aspectRatio;			//
 extern idCVar r_multiSamples;			// number of antialiasing samples
 
 extern idCVar r_ignore;					// used for random debugging without defining new vars
@@ -987,6 +1002,13 @@ extern idCVar r_materialOverride;		// override all materials
 
 extern idCVar r_debugRenderToTexture;
 
+extern idCVar con_fontsizeh;			// Marty - Scale Console Font
+extern idCVar con_fontsizew;			// Marty - Scale Console Font
+extern idCVar con_sizeheight;			// Marty - Scale Console Size
+extern idCVar con_linewidth;			// Marty - Scale Console Size
+extern idCVar con_linescale;			// Marty - Scale Console Font & Size
+
+extern idCVar cmp_usedefmodeindex;		// Marty - Compatibility Fix 1
 /*
 ====================================================================
 
@@ -1074,6 +1096,7 @@ typedef struct {
 	bool		stereo;
 	int			displayHz;
 	int			multiSamples;
+	bool		borderless;				// Added by Marty
 } glimpParms_t;
 
 bool		GLimp_Init( glimpParms_t parms );

@@ -40,6 +40,7 @@ If you have questions concerning this license or the applicable additional terms
 
 static const int IDM_WINDOWCHILD	= 1000;
 static const int ID_GUIED_FILE_MRU1 = 10000;
+extern idCVar r_multiSamples;
 
 static INT_PTR CALLBACK AboutDlg_WndProc ( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
@@ -77,6 +78,24 @@ Initialize the gui editor application
 */
 bool rvGEApp::Initialize ( void )
 {
+
+
+	/* Marty */
+	if (renderSystem->IsFullScreen() || r_multiSamples.GetInteger() != 0) {
+
+		if (renderSystem->IsFullScreen())
+			common->Printf("You are in fullscreen mode. Set r_fullscreen to 0 and vid_restart or press alt & enter.\n");
+		
+		int aa = r_multiSamples.GetInteger();
+		if (aa > 0)
+			common->Warning("GuiEditor doesnt like Multisamples. Set r_MultiSamples to 0 (current %d).\n", aa);
+
+			//r_multiSamples.SetInteger(0);
+			//cmdSystem->BufferCommandText(CMD_EXEC_NOW, "vid_restart\n");
+			//cmdSystem->BufferCommandText(CMD_EXEC_NOW, "editguis\n");
+		return false;
+	}
+
 	mOptions.Init();
 
 	// Mutually exclusive
@@ -123,7 +142,7 @@ bool rvGEApp::Initialize ( void )
 		return false;
 	}
 
-	SetClassLong( mMDIFrame, GCL_HICON, ( LONG )LoadIcon( win32.hInstance, MAKEINTRESOURCE( IDI_GUIED ) ) );
+	SetClassLongPtr( mMDIFrame, GCLP_HICON, (LONG_PTR)LoadIcon( win32.hInstance, MAKEINTRESOURCE( IDI_GUIED ) ) );
 	
 	// Create the MDI window
 	CLIENTCREATESTRUCT ccs;
@@ -141,9 +160,12 @@ bool rvGEApp::Initialize ( void )
 		return false;
 	}
 
-	// hide the doom window by default
+	::ShowWindow(win32.hWnd, SW_MINIMIZE); /* Marty */
+
+	// hide the doom window by default	
 	::ShowWindow ( win32.hWnd, SW_HIDE );
 	
+
 	// Show both windows
 	mOptions.GetWindowPlacement ( "mdiframe", mMDIFrame );
 	ShowWindow ( mMDIFrame, SW_SHOW ); 
@@ -152,6 +174,7 @@ bool rvGEApp::Initialize ( void )
 	ShowWindow ( mMDIClient, SW_SHOW );
 	UpdateWindow ( mMDIClient );
 	
+	::SetFocus(mMDIClient);
 	return true;
 }
 
@@ -263,7 +286,7 @@ Main frame window procedure
 */
 LRESULT CALLBACK rvGEApp::FrameWndProc ( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
-	rvGEApp* app = (rvGEApp*) GetWindowLong ( hWnd, GWL_USERDATA );
+	rvGEApp* app = (rvGEApp*) GetWindowLongPtr ( hWnd, GWLP_USERDATA );
 
 	switch ( uMsg )
 	{		
@@ -318,13 +341,26 @@ LRESULT CALLBACK rvGEApp::FrameWndProc ( HWND hWnd, UINT uMsg, WPARAM wParam, LP
 			while ( app->mWorkspaces.Num ( ) )
 			{
 				SendMessage ( app->mWorkspaces[0]->GetWindow ( ), WM_CLOSE, 0, 0 );
+				/* Marty Remove Gui Index Numbering */
+				uiManager->DeleteClosedGui();
+				#if defined DEBUG
+					uiManager->GetNumGuis();
+				#endif
 			}
 			break;
 
 		case WM_DESTROY:
 			app->mOptions.SetWindowPlacement ( "mdiframe", hWnd );
-			app->mOptions.Save ( );			
-			ExitProcess(0);
+			app->mOptions.Save ( );					
+			//ExitProcess(0);
+			
+			//Sleep(150);
+			ShowWindow(win32.hWnd, SW_RESTORE);
+			//UpdateWindow(win32.hWnd);
+			cmdSystem->BufferCommandText(CMD_EXEC_NOW, "reloadGuis\n");		
+			//cmdSystem->BufferCommandText(CMD_EXEC_NOW, "disconnect\n");
+			cmdSystem->BufferCommandText(CMD_EXEC_NOW, "vid_restart\n");
+			ShowWindow(win32.hWnd, SW_SHOW);
 			break;			
 
 		case WM_COMMAND:
@@ -348,7 +384,7 @@ LRESULT CALLBACK rvGEApp::FrameWndProc ( HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 			assert ( app );
 			
-			SetWindowLong ( hWnd, GWL_USERDATA, (LONG)app );
+			SetWindowLongPtr( hWnd, GWLP_USERDATA, (LONG_PTR)app );
 
 			app->mMDIFrame = hWnd;
 			
@@ -365,9 +401,9 @@ LRESULT CALLBACK rvGEApp::FrameWndProc ( HWND hWnd, UINT uMsg, WPARAM wParam, LP
 			app->mToolWindows.Append ( app->mProperties.GetWindow ( ) );
 			app->mToolWindows.Append ( app->mTransformer.GetWindow ( ) );
 			
-			SendMessage ( app->mNavigator.GetWindow ( ), WM_NCACTIVATE, true, (LONG)-1 );
-			SendMessage ( app->mProperties.GetWindow ( ), WM_NCACTIVATE, true, (LONG)-1 );
-			SendMessage ( app->mTransformer.GetWindow ( ), WM_NCACTIVATE, true, (LONG)-1 );			
+			SendMessage ( app->mNavigator.GetWindow ( ), WM_NCACTIVATE, true, (LONG_PTR)-1 );
+			SendMessage ( app->mProperties.GetWindow ( ), WM_NCACTIVATE, true, (LONG_PTR)-1 );
+			SendMessage ( app->mTransformer.GetWindow ( ), WM_NCACTIVATE, true, (LONG_PTR)-1 );
 
 			break;
 		}
@@ -385,7 +421,7 @@ MDI Child window procedure
 */
 LRESULT CALLBACK rvGEApp::MDIChildProc ( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
-	rvGEWorkspace* workspace = (rvGEWorkspace*)GetWindowLong ( hWnd, GWL_USERDATA );	
+	rvGEWorkspace* workspace = (rvGEWorkspace*)GetWindowLongPtr ( hWnd, GWLP_USERDATA );
 
 	// Give the active workspace a chance to play with it
 	if ( workspace )
@@ -572,10 +608,10 @@ int rvGEApp::HandleCommand ( WPARAM wParam, LPARAM lParam )
 			break;
 			
 		case ID_GUIED_TOOLS_RELOADMATERIALS:
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_WAIT) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_WAIT ) );
 			cmdSystem->BufferCommandText( CMD_EXEC_NOW, "reloadImages\n" );
 			cmdSystem->BufferCommandText( CMD_EXEC_NOW, "reloadMaterials\n" );
-			SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_ARROW) ) );
+			SetCursor ( LoadCursor ( NULL, IDC_ARROW ) );
 			break;
 			
 		case ID_GUIED_EDIT_COPY:
@@ -826,6 +862,16 @@ int rvGEApp::HandleCommand ( WPARAM wParam, LPARAM lParam )
 			break;
 	
 		case ID_GUIED_FILE_EXIT:
+			/* Marty -- Added. */
+			while (mWorkspaces.Num())
+			{
+				SendMessage(mWorkspaces[0]->GetWindow(), WM_CLOSE, 0, 0);
+				/* Marty Remove Gui Index Numbering */
+				uiManager->DeleteClosedGui();
+				#if defined DEBUG
+						uiManager->GetNumGuis();
+				#endif
+			}
 			DestroyWindow ( mMDIFrame );
 			break;
 
@@ -834,6 +880,17 @@ int rvGEApp::HandleCommand ( WPARAM wParam, LPARAM lParam )
 			{
 				assert ( workspace );
 				SendMessage ( active, WM_CLOSE, 0, 0 );
+
+				/* Marty
+				* If you have opened a Gui and then closes it again, this number (Gui)
+				* still exists in the GuiIndex. This Resulting in List.h
+				* ( idList<type>::DeleteContents ) crash or if you go back from GuiEditor
+				* to Doom3 and type ReloadGui or going Quit. Crazy .....				
+				*/
+				uiManager->DeleteClosedGui();
+				#if defined DEBUG
+					uiManager->GetNumGuis();
+				#endif
 			}
 			break;
 			
@@ -855,6 +912,8 @@ int rvGEApp::HandleCommand ( WPARAM wParam, LPARAM lParam )
 		{
 			OPENFILENAME ofn;
 			char		 szFile[MAX_PATH] = "";
+			char		 szinit[MAX_PATH] = "";		/*Marty*/
+			GetCurrentDirectoryA(MAX_PATH, szinit); /*point to Doom Root*/
 
 			// Initialize OPENFILENAME
 			ZeroMemory(&ofn, sizeof(OPENFILENAME));
@@ -862,11 +921,21 @@ int rvGEApp::HandleCommand ( WPARAM wParam, LPARAM lParam )
 			ofn.hwndOwner = mMDIFrame;
 			ofn.lpstrFile = szFile;
 			ofn.nMaxFile = sizeof(szFile);
-			ofn.lpstrFilter = "GUI Files\0*.GUI\0All Files\0*.*\0";
+			//ofn.lpstrFilter = "GUI Files\0*.GUI\0All Files\0*.*\0";
+			//ofn.lpstrFilter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+			ofn.lpstrFilter = "GUI Files (*.gui)\0*.gui\0All files (*.*)\0*.*\0";
 			ofn.nFilterIndex = 1;
 			ofn.lpstrFileTitle = NULL;
 			ofn.nMaxFileTitle = 0;
-			ofn.lpstrInitialDir = NULL;
+			if (mszDirInit == false)
+			{
+				mszDirInit = true;
+				ofn.lpstrInitialDir = szinit;
+			}
+			else
+			{
+				ofn.lpstrInitialDir = NULL;
+			}			
 			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
 			// Display the Open dialog box. 
@@ -1159,7 +1228,7 @@ bool rvGEApp::NewFile ( void )
 								480,
 								mMDIClient,
 								mInstance,
-								(LONG)workspace );
+								(LONG_PTR)workspace );
 														
 		ShowWindow ( child, SW_SHOW );
 	}
@@ -1191,7 +1260,7 @@ bool rvGEApp::OpenFile ( const char* filename )
 		}
 	}
 
-	SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_WAIT ) ) );
+	SetCursor ( LoadCursor ( NULL, IDC_WAIT ) );
 
 	// Setup the default error.
 	error = va("Failed to parse '%s'", filename );
@@ -1210,7 +1279,7 @@ bool rvGEApp::OpenFile ( const char* filename )
 								480,
 								mMDIClient,
 								mInstance,
-								(LONG)workspace );
+								(LONG_PTR)workspace );
 														
 		ShowWindow ( child, SW_SHOW );
 		
@@ -1224,7 +1293,7 @@ bool rvGEApp::OpenFile ( const char* filename )
 		MessageBox ( error, MB_OK|MB_ICONERROR );
 	}
 
-	SetCursor ( LoadCursor ( NULL, MAKEINTRESOURCE(IDC_ARROW ) ) );
+	SetCursor ( LoadCursor ( NULL, IDC_ARROW ) );
 	
 	return result;;
 }
@@ -1362,7 +1431,7 @@ int	rvGEApp::ToolWindowActivate ( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 		{
 			if ( mToolWindows[i] != hwnd &&	mToolWindows[i] != (HWND) lParam )
 			{
-				SendMessage ( mToolWindows[i], WM_NCACTIVATE, keepActive, (LONG)-1 );
+				SendMessage ( mToolWindows[i], WM_NCACTIVATE, keepActive, (LONG_PTR)-1 );
 			}
 		}
 	}

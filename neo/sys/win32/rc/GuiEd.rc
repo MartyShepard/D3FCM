@@ -118,7 +118,7 @@ BEGIN
             MENUITEM "&editDef",                    ID_GUIED_ITEM_NEWEDITDEF
             MENUITEM "&htmlDef",                    ID_GUIED_ITEM_NEWHTMLDEF
             MENUITEM "&choiceDef",                  5114
-            MENUITEM "&sliderDef",                  0
+            MENUITEM "&sliderDef",                  ID_GUIED_ITEM_NEWSLIDERDEF
             MENUITEM "&bindDef",                    5115
             MENUITEM "&listDef",                    5116
             MENUITEM "&renderDef",                  5118

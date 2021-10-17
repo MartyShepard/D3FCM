@@ -479,6 +479,17 @@ void idSoundSample::Load( void ) {
 	objectSize = fh.GetOutputSize();
 	objectMemSize = fh.GetMemorySize();
 
+	/* Marty -- Crash Fix Silent Sample Files */
+	/*
+	*  This happens if a modder use a Silent Wav File with no data and or this is short too.
+	*/
+	if (objectSize == 0 && objectMemSize == 0)
+	{
+		common->Warning("Silent Sample? File too short and or has no data for Buffer '%s'. using default", name.c_str());
+		MakeDefault();
+		return;
+	}
+
 	nonCacheData = (byte *)soundCacheAllocator.Alloc( objectMemSize );
 	fh.Read( nonCacheData, objectMemSize, NULL );
 
@@ -492,12 +503,12 @@ void idSoundSample::Load( void ) {
 			alGetError();
 			alGenBuffers( 1, &openalBuffer );
 			if ( alGetError() != AL_NO_ERROR )
-				common->Error( "idSoundCache: error generating OpenAL hardware buffer" );
+				common->Error( "idSoundCache: error generating OpenAL hardware buffer\rProblem File %s", name.c_str() );
 			if ( alIsBuffer( openalBuffer ) ) {
 				alGetError();
 				alBufferData( openalBuffer, objectInfo.nChannels==1?AL_FORMAT_MONO16:AL_FORMAT_STEREO16, nonCacheData, objectMemSize, objectInfo.nSamplesPerSec );
 				if ( alGetError() != AL_NO_ERROR ) {
-					common->Error( "idSoundCache: error loading data into OpenAL hardware buffer" );
+					common->Error("idSoundCache: error loading data into OpenAL hardware buffer\rProblem File %s", name.c_str() );
 				} else {
 					// Compute amplitude block size
 					int blockSize = 512 * objectInfo.nSamplesPerSec / 44100 ;

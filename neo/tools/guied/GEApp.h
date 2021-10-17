@@ -81,6 +81,8 @@ public:
 	void				RunFrame				( void );
 //	bool				Uninitialize			( void );
 
+	bool				mszDirInit;
+
 	bool				TranslateAccelerator	( LPMSG msg );
 
 	rvGEWorkspace*		GetActiveWorkspace		( HWND* retwnd = NULL );

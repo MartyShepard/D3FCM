@@ -71,6 +71,7 @@ typedef struct {
 	HBRUSH		hbrErrorBackground;
 
 	HFONT		hfBufferFont;
+	HFONT		hfBufferFntB;
 	HFONT		hfButtonFont;
 
 	HWND		hwndInputLine;
@@ -285,7 +286,7 @@ void Sys_CreateConsole( void ) {
 	WNDCLASS wc;
 	RECT rect;
 	const char *DEDCLASS = WIN32_CONSOLE_CLASS;
-	int nHeight;
+	int nHeight,bHeight;
 	int swidth, sheight;
 	int DEDSTYLE = WS_POPUPWINDOW | WS_CAPTION | WS_MINIMIZEBOX;
 	int i;
@@ -308,9 +309,9 @@ void Sys_CreateConsole( void ) {
 	}
 
 	rect.left = 0;
-	rect.right = 540;
+	rect.right = 600; // 540;
 	rect.top = 0;
-	rect.bottom = 450;
+	rect.bottom = 750;// 450;
 	AdjustWindowRect( &rect, DEDSTYLE, FALSE );
 
 	hDC = GetDC( GetDesktopWindow() );
@@ -327,7 +328,7 @@ void Sys_CreateConsole( void ) {
 							   DEDCLASS,
 							   GAME_NAME,
 							   DEDSTYLE,
-							   ( swidth - 600 ) / 2, ( sheight - 450 ) / 2 , rect.right - rect.left + 1, rect.bottom - rect.top + 1,
+							   ( swidth - 660 ) / 2, ( sheight - 750 ) / 2 , rect.right - rect.left + 1, rect.bottom - rect.top + 1,
 							   NULL,
 							   NULL,
 							   win32.hInstance,
@@ -342,9 +343,11 @@ void Sys_CreateConsole( void ) {
 	//
 	hDC = GetDC( s_wcd.hWnd );
 	nHeight = -MulDiv( 8, GetDeviceCaps( hDC, LOGPIXELSY ), 72 );
+	bHeight = -MulDiv(10, GetDeviceCaps(hDC, LOGPIXELSY), 72);
 
-	s_wcd.hfBufferFont = CreateFont( nHeight, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Courier New" );
-
+	s_wcd.hfBufferFont = CreateFont( nHeight, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Segoe UI Mono" );
+	s_wcd.hfBufferFntB = CreateFont( bHeight, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Segoe UI Mono");
+	s_wcd.hfButtonFont = CreateFont( nHeight, 0, 0, 0, FW_LIGHT, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_MODERN | FIXED_PITCH, "Segoe UI");
 	ReleaseDC( s_wcd.hWnd, hDC );
 
 	//
@@ -352,7 +355,7 @@ void Sys_CreateConsole( void ) {
 	//
 	s_wcd.hwndInputLine = CreateWindow( "edit", NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | 
 												ES_LEFT | ES_AUTOHSCROLL,
-												6, 400, 528, 20,
+												6, 700, 528, 20,
 												s_wcd.hWnd, 
 												( HMENU ) INPUT_ID,	// child window ID
 												win32.hInstance, NULL );
@@ -361,33 +364,35 @@ void Sys_CreateConsole( void ) {
 	// create the buttons
 	//
 	s_wcd.hwndButtonCopy = CreateWindow( "button", NULL, BS_PUSHBUTTON | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-												5, 425, 72, 24,
+												5, 720, 78, 24,
 												s_wcd.hWnd, 
 												( HMENU ) COPY_ID,	// child window ID
 												win32.hInstance, NULL );
-	SendMessage( s_wcd.hwndButtonCopy, WM_SETTEXT, 0, ( LPARAM ) "copy" );
+	SendMessage( s_wcd.hwndButtonCopy, WM_SETTEXT, 0, ( LPARAM ) "Kopieren" );
+	SendMessage(s_wcd.hwndButtonCopy, WM_SETFONT, (WPARAM)s_wcd.hfButtonFont, 0);
 
 	s_wcd.hwndButtonClear = CreateWindow( "button", NULL, BS_PUSHBUTTON | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-												82, 425, 72, 24,
+												82, 720, 78, 24,
 												s_wcd.hWnd, 
 												( HMENU ) CLEAR_ID,	// child window ID
 												win32.hInstance, NULL );
-	SendMessage( s_wcd.hwndButtonClear, WM_SETTEXT, 0, ( LPARAM ) "clear" );
+	SendMessage( s_wcd.hwndButtonClear, WM_SETTEXT, 0, ( LPARAM ) "Löschen" ); /*delete ? macht da sinn?*/
+	SendMessage(s_wcd.hwndButtonClear, WM_SETFONT, (WPARAM)s_wcd.hfButtonFont, 0);
 
 	s_wcd.hwndButtonQuit = CreateWindow( "button", NULL, BS_PUSHBUTTON | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-												462, 425, 72, 24,
+												516, 720, 78, 24,
 												s_wcd.hWnd, 
 												( HMENU ) QUIT_ID,	// child window ID
 												win32.hInstance, NULL );
-	SendMessage( s_wcd.hwndButtonQuit, WM_SETTEXT, 0, ( LPARAM ) "quit" );
-
+	SendMessage( s_wcd.hwndButtonQuit, WM_SETTEXT, 0, ( LPARAM ) "Beenden" );
+	SendMessage(s_wcd.hwndButtonQuit, WM_SETFONT, (WPARAM)s_wcd.hfButtonFont, 0);
 
 	//
 	// create the scrollbuffer
 	//
 	s_wcd.hwndBuffer = CreateWindow( "edit", NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_BORDER | 
-												ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-												6, 40, 526, 354,
+												ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_HSCROLL,
+												6, 40, 588, 674,
 												s_wcd.hWnd, 
 												( HMENU ) EDIT_ID,	// child window ID
 												win32.hInstance, NULL );
@@ -535,6 +540,7 @@ void Conbuf_AppendText( const char *pMsg )
 	SendMessage( s_wcd.hwndBuffer, EM_LINESCROLL, 0, 0xffff );
 	SendMessage( s_wcd.hwndBuffer, EM_SCROLLCARET, 0, 0 );
 	SendMessage( s_wcd.hwndBuffer, EM_REPLACESEL, 0, (LPARAM) buffer );
+	
 }
 
 /*
@@ -544,11 +550,11 @@ void Win_SetErrorText( const char *buf ) {
 	idStr::Copynz( s_wcd.errorString, buf, sizeof( s_wcd.errorString ) );
 	if ( !s_wcd.hwndErrorBox ) {
 		s_wcd.hwndErrorBox = CreateWindow( "static", NULL, WS_CHILD | WS_VISIBLE | SS_SUNKEN,
-													6, 5, 526, 30,
+													6, 5, 586, 30,
 													s_wcd.hWnd, 
 													( HMENU ) ERRORBOX_ID,	// child window ID
 													win32.hInstance, NULL );
-		SendMessage( s_wcd.hwndErrorBox, WM_SETFONT, ( WPARAM ) s_wcd.hfBufferFont, 0 );
+		SendMessage( s_wcd.hwndErrorBox, WM_SETFONT, ( WPARAM ) s_wcd.hfBufferFntB, 0 );
 		SetWindowText( s_wcd.hwndErrorBox, s_wcd.errorString );
 
 		DestroyWindow( s_wcd.hwndInputLine );

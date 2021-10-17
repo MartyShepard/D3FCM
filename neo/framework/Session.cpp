@@ -34,7 +34,11 @@ If you have questions concerning this license or the applicable additional terms
 idCVar	idSessionLocal::com_showAngles( "com_showAngles", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_minTics( "com_minTics", "1", CVAR_SYSTEM, "" );
 idCVar	idSessionLocal::com_showTics( "com_showTics", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
-idCVar	idSessionLocal::com_fixedTic( "com_fixedTic", "0", CVAR_SYSTEM | CVAR_INTEGER, "", 0, 10 );
+
+
+idCVar	idSessionLocal::com_fixedTic( "com_fixedTic", "0", CVAR_SYSTEM | CVAR_INTEGER, "", -10, 10 );
+
+
 idCVar	idSessionLocal::com_showDemo( "com_showDemo", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_skipGameDraw( "com_skipGameDraw", "0", CVAR_SYSTEM | CVAR_BOOL, "" );
 idCVar	idSessionLocal::com_aviDemoSamples( "com_aviDemoSamples", "16", CVAR_SYSTEM, "" );
@@ -244,6 +248,7 @@ static void Session_PromptKey_f( const idCmdArgs &args ) {
 		if ( prompt_msg[ 0 ] == '\0' ) {
 			prompt_msg = common->GetLanguageDict()->GetString( "#str_04308" );
 		}
+
 		retkey = sessLocal.MessageBox( MSG_CDKEY, prompt_msg, common->GetLanguageDict()->GetString( "#str_04305" ), true, NULL, NULL, true );
 		if ( retkey ) {
 			if ( sessLocal.CheckKey( retkey, false, valid ) ) {
@@ -2512,7 +2517,6 @@ idSessionLocal::Frame
 ===============
 */
 void idSessionLocal::Frame() {
-
 	if ( com_asyncSound.GetInteger() == 0 ) {
 		soundSystem->AsyncUpdate( Sys_Milliseconds() );
 	}
@@ -2577,7 +2581,7 @@ void idSessionLocal::Frame() {
 	} else if ( writeDemo ) {
 		minTic = lastGameTic + USERCMD_PER_DEMO_FRAME;		// demos are recorded at 30 hz
 	}
-	
+
 	// fixedTic lets us run a forced number of usercmd each frame without timing
 	if ( com_fixedTic.GetInteger() ) {
 		minTic = latchedTicNumber;

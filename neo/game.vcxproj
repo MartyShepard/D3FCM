@@ -31,7 +31,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>Game</ProjectName>
+    <ProjectName>Base</ProjectName>
     <ProjectGuid>{49BEC5C6-B964-417A-851E-808886B57430}</ProjectGuid>
     <RootNamespace>Game</RootNamespace>
     <SccProjectName>
@@ -41,35 +41,43 @@
     <SccProvider>
     </SccProvider>
     <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug with inlines|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines and memory log|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -148,11 +156,33 @@
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\Base\</OutDir>
+    <TargetName>gamex86</TargetName>
+    <IntDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\intermediate\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\Base\</OutDir>
+    <IntDir>$(SolutionDir)..\Build\$(Platform)\$(Configuration)\intermediate\$(ProjectName)\</IntDir>
+    <TargetName>gamex86</TargetName>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
+    <Link>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <ModuleDefinitionFile>.\game\game.def</ModuleDefinitionFile>
+    </Link>
+    <ClCompile>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <UseFullPaths>false</UseFullPaths>
+      <DisableSpecificWarnings>4100;4127;4244;4245;4267;4714;4996;4068;4458</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>
+      </TreatSpecificWarningsAsErrors>
+      <AdditionalOptions>/std:c++14 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines|Win32'">
     <PreBuildEvent>
@@ -183,12 +213,36 @@
       <Command>cd $(SolutionDir)\..
 "build\Win32\$(Configuration)\TypeInfo.exe"</Command>
     </PreBuildEvent>
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);_ALLOW_KEYWORD_MACROS</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions);_ALLOW_KEYWORD_MACROS;WIN32;_WINDOWS;GAME_DLL;D3_ARCH="x86";D3_SIZEOFPTR=8;D3_OSTYPE="windows";WINVER=0x0501;_WIN32_WINNT=0x0501</PreprocessorDefinitions>
+      <TreatSpecificWarningsAsErrors>4840;4306;4311;4312;4302</TreatSpecificWarningsAsErrors>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <StringPooling />
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <FunctionLevelLinking />
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DisableSpecificWarnings>4100;4127;4244;4245;4267;4714;4996;4068;4458</DisableSpecificWarnings>
+      <UseFullPaths>false</UseFullPaths>
+    </ClCompile>
+    <Link>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <ModuleDefinitionFile>.\game\game.def</ModuleDefinitionFile>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="game\ai\AAS.cpp" />
@@ -331,10 +385,6 @@
   <ItemGroup>
     <ProjectReference Include="idlib.vcxproj">
       <Project>{49bec5c6-b964-417a-851e-808886b57400}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="typeinfo.vcxproj">
-      <Project>{6ea6406f-3e65-47d9-8246-d6660a81606f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
   </ItemGroup>

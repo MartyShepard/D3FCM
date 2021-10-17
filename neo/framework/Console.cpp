@@ -29,6 +29,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 #pragma hdrstop
 
+// Marty -- added
+#include "..\renderer\tr_local.h"	
+
 void SCR_DrawTextLeftAlign( float &y, const char *text, ... ) id_attribute((format(printf,2,3)));
 void SCR_DrawTextRightAlign( float &y, const char *text, ... ) id_attribute((format(printf,2,3)));
 
@@ -55,6 +58,10 @@ public:
 	virtual	void		Close( void );
 	virtual	void		Print( const char *text );
 	virtual	void		Draw( bool forceFullScreen );
+
+	virtual	int			GetTotalLines(void);	//Marty - Handle console Size Heigh
+	virtual	int			GetLineswidth(void);	//Marty - handel console line width
+	virtual int			SetFontWidth(void);		//Marty - Handle console font size width in combinbation with lineswidth
 
 	void				Dump( const char *toFile );
 	void				Clear();
@@ -108,6 +115,10 @@ private:
 	int					historyLine;	// the line being displayed from history buffer
 									// will be <= nextHistoryLine
 
+	int					OldLineLength;	// Marty -- current console Line Width
+	int					OldFontSizeW;	// Marty -- current console Font size width
+
+	bool				IsConsoleInit = false;
 	idEditField			consoleField;
 
 	static idCVar		con_speed;
@@ -123,6 +134,19 @@ idConsole	*console = &localConsole;
 
 idCVar idConsoleLocal::con_speed( "con_speed", "3", CVAR_SYSTEM, "speed at which the console moves up and down" );
 idCVar idConsoleLocal::con_notifyTime( "con_notifyTime", "3", CVAR_SYSTEM, "time messages are displayed onscreen when console is pulled up" );
+
+/*
+*  Marty: Fontscaling and Console Height
+*  Here are the Functions for the Fonstscaling and window heigh change
+*  Pointed to call in the Rendersystem
+		DrawSmallStringCon (a DrawSmallStringExt copy with a few changed h/w vriables)
+		DrawSmallCons (a DrawSmallCVar copy with a few changed h/w vriables)
+		live read updates come from con_fontsizew.GetInteger() &  con_fontsizeh.GetInteger();
+		Default Console height is 480, due on the calculation of the base screen height
+		from 640x480 (default). 
+
+*/
+
 #ifdef DEBUG
 idCVar idConsoleLocal::con_noPrint( "con_noPrint", "0", CVAR_BOOL|CVAR_SYSTEM|CVAR_NOCHEAT, "print on the console but not onscreen when console is pulled up" );
 #else
@@ -150,8 +174,8 @@ void SCR_DrawTextLeftAlign( float &y, const char *text, ... ) {
 	va_start( argptr, text );
 	idStr::vsnPrintf( string, sizeof( string ), text, argptr );
 	va_end( argptr );
-	renderSystem->DrawSmallStringExt( 0, y + 2, string, colorWhite, true, localConsole.charSetShader );
-	y += SMALLCHAR_HEIGHT + 4;
+	tr.DrawSmallStringCon( 0, y + 2, string, colorWhite, true, localConsole.charSetShader, con_fontsizeh.GetInteger(), con_fontsizew.GetInteger()); // Marty - Changed for font scaling
+	y += con_fontsizeh.GetInteger() + 4;
 }
 
 /*
@@ -165,12 +189,10 @@ void SCR_DrawTextRightAlign( float &y, const char *text, ... ) {
 	va_start( argptr, text );
 	int i = idStr::vsnPrintf( string, sizeof( string ), text, argptr );
 	va_end( argptr );
-	renderSystem->DrawSmallStringExt( 635 - i * SMALLCHAR_WIDTH, y + 2, string, colorWhite, true, localConsole.charSetShader );
-	y += SMALLCHAR_HEIGHT + 4;
+	tr.DrawSmallStringCon( 635 - i * con_fontsizeh.GetInteger(), y + 2, string, colorWhite, true, localConsole.charSetShader, con_fontsizeh.GetInteger(), con_fontsizew.GetInteger());  // Marty - Changed for font scaling
+	y += con_fontsizeh.GetInteger() + 4;
+
 }
-
-
-
 
 /*
 ==================
@@ -209,12 +231,15 @@ float SCR_DrawFPS( float y ) {
 		fps = (fps + 5)/10;
 
 		s = va( "%ifps", fps );
-		w = strlen( s ) * BIGCHAR_WIDTH;
+		w = strlen(s) * con_fontsizew.GetInteger();	//BIGCHAR_WIDTH;
 
-		renderSystem->DrawBigStringExt( 635 - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader);
+		/* Marty .. Change Fps Font */
+		tr.DrawSmallStringCon( 635 - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader, con_fontsizeh.GetInteger(), con_fontsizew.GetInteger());
 	}
 
-	return y + BIGCHAR_HEIGHT + 4;
+	/* Marty -- Changed*/
+	//return y + SMALLCHAR_HEIGHT + 4;
+	return y + con_fontsizeh.GetInteger() + 4;
 }
 
 /*
@@ -358,6 +383,14 @@ idConsoleLocal::Init
 void idConsoleLocal::Init( void ) {
 	int		i;
 
+	// ====================================================== Marty
+	int				Line_Width = GetLineswidth();
+	int				TotalLines = GetTotalLines();
+	
+	IsConsoleInit = true;
+	OldLineLength = Line_Width;
+	OldFontSizeW  = con_fontsizew.GetInteger();
+
 	keyCatching = false;
 
 	lastKeyEvent = -1;
@@ -365,11 +398,11 @@ void idConsoleLocal::Init( void ) {
 
 	consoleField.Clear();
 
-	consoleField.SetWidthInChars( LINE_WIDTH );
+	consoleField.SetWidthInChars(Line_Width);
 
 	for ( i = 0 ; i < COMMAND_HISTORY ; i++ ) {
 		historyEditLines[i].Clear();
-		historyEditLines[i].SetWidthInChars( LINE_WIDTH );
+		historyEditLines[i].SetWidthInChars(Line_Width);
 	}
 
 	cmdSystem->AddCommand( "clear", Con_Clear_f, CMD_FL_SYSTEM, "clears the console" );
@@ -443,7 +476,9 @@ void idConsoleLocal::Clear() {
 	int		i;
 
 	for ( i = 0 ; i < CON_TEXTSIZE ; i++ ) {
-		text[i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+		// Marty: unused Space fills the Console Memory
+		//text[i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+		text[i] = 0;
 	}
 
 	Bottom();		// go to end
@@ -454,13 +489,22 @@ void idConsoleLocal::Clear() {
 idConsoleLocal::Dump
 
 Save the console contents out to a file
+Marty - Updated for the new Line Lenght
 ================
 */
 void idConsoleLocal::Dump( const char *fileName ) {
 	int		l, x, i;
 	short *	line;
 	idFile *f;
-	char	buffer[LINE_WIDTH + 3];
+
+	int				TotalLines = GetTotalLines();
+	int				SaveLenght = con_linewidth.GetInteger();
+					con_linewidth.SetInteger(300);
+
+					GetLineswidth();
+
+	char* buffer;
+	buffer = (char*)malloc(300 + 3); 	/*char	buffer[LINE_WIDTH + 3];*/
 
 	f = fileSystem->OpenFileWrite( fileName );
 	if ( !f ) {
@@ -469,27 +513,27 @@ void idConsoleLocal::Dump( const char *fileName ) {
 	}
 
 	// skip empty lines
-	l = current - TOTAL_LINES + 1;
+	l = current - /*TOTAL_LINES*/TotalLines + 1;
 	if ( l < 0 ) {
 		l = 0;
 	}
 	for ( ; l <= current ; l++ )
 	{
-		line = text + ( l % TOTAL_LINES ) * LINE_WIDTH;
-		for ( x = 0; x < LINE_WIDTH; x++ )
+		line = text + ( l % /*TOTAL_LINES*/TotalLines) * /*LINE_WIDTH*/OldLineLength;
+		for ( x = 0; x < /*LINE_WIDTH*/OldLineLength; x++ )
 			if ( ( line[x] & 0xff ) > ' ' )
 				break;
-		if ( x != LINE_WIDTH )
+		if ( x != /*LINE_WIDTH*/OldLineLength)
 			break;
 	}
 
 	// write the remaining lines
 	for ( ; l <= current; l++ ) {
-		line = text + ( l % TOTAL_LINES ) * LINE_WIDTH;
-		for( i = 0; i < LINE_WIDTH; i++ ) {
+		line = text + ( l % /*TOTAL_LINES*/TotalLines) * /*LINE_WIDTH*/OldLineLength;
+		for( i = 0; i < /*LINE_WIDTH*/OldLineLength; i++ ) {
 			buffer[i] = line[i] & 0xff;
 		}
-		for ( x = LINE_WIDTH-1; x >= 0; x-- ) {
+		for ( x = /*LINE_WIDTH*/OldLineLength -1; x >= 0; x-- ) {
 			if ( buffer[x] <= ' ' ) {
 				buffer[x] = 0;
 			} else {
@@ -503,6 +547,8 @@ void idConsoleLocal::Dump( const char *fileName ) {
 	}
 
 	fileSystem->CloseFile( f );
+
+	con_linewidth.SetInteger(SaveLenght); GetLineswidth();
 }
 
 /*
@@ -512,8 +558,8 @@ idConsoleLocal::PageUp
 */
 void idConsoleLocal::PageUp( void ) {
 	display -= 2;
-	if ( current - display >= TOTAL_LINES ) {
-		display = current - TOTAL_LINES + 1;
+	if ( current - display >= GetTotalLines() ) {
+		display = current - GetTotalLines() + 1;
 	}
 }
 
@@ -565,6 +611,12 @@ Handles history and console scrollback
 */
 void idConsoleLocal::KeyDownEvent( int key ) {
 	
+	// Marty - Fix für das Öffnen und schliessen der Konsole mit circum
+	if (key == 96) {		
+		cmdSystem->BufferCommandText(CMD_EXEC_APPEND, consoleField.GetBuffer());	// valid command
+		cmdSystem->BufferCommandText(CMD_EXEC_APPEND, "\b");
+		return;
+	}
 	// Execute F key bindings
 	if ( key >= K_F1 && key <= K_F12 ) {
 		idKeyInput::ExecKeyBinding( key );
@@ -591,7 +643,7 @@ void idConsoleLocal::KeyDownEvent( int key ) {
 		historyLine = nextHistoryLine;
 
 		consoleField.Clear();
-		consoleField.SetWidthInChars( LINE_WIDTH );
+		consoleField.SetWidthInChars( GetLineswidth() );
 
 		session->UpdateScreen();// force an update, because the command
 								// may take some time
@@ -748,6 +800,9 @@ bool	idConsoleLocal::ProcessEvent( const sysEvent_t *event, bool forceAccept ) {
 		if ( !idKeyInput::IsDown( K_CTRL ) || !idKeyInput::IsDown( K_ALT ) ) {
 			consoleKey = false;
 		}
+		if (!idKeyInput::IsDown(220) || !idKeyInput::IsDown(94)) {
+			consoleKey = false;
+		}
 	}
 #endif
 
@@ -766,6 +821,11 @@ bool	idConsoleLocal::ProcessEvent( const sysEvent_t *event, bool forceAccept ) {
 			Sys_GrabMouseCursor( true );
 			cvarSystem->SetCVarBool( "ui_chat", false );
 		} else {
+			
+			if (event->evValue == 96) {
+				idConsoleLocal::KeyDownEvent(event->evValue);
+			}
+
 			consoleField.Clear();
 			keyCatching = true;
 			if ( idKeyInput::IsDown( K_SHIFT ) ) {
@@ -776,8 +836,10 @@ bool	idConsoleLocal::ProcessEvent( const sysEvent_t *event, bool forceAccept ) {
 			}
 			cvarSystem->SetCVarBool( "ui_chat", true );
 		}
+
 		return true;
 	}
+
 
 	// if we aren't key catching, dump all the other events
 	if ( !forceAccept && !keyCatching ) {
@@ -823,6 +885,9 @@ Linefeed
 void idConsoleLocal::Linefeed() {
 	int		i;
 
+	// ====================================================== Marty
+	int				Line_Width = GetLineswidth();
+	int				TotalLines = GetTotalLines();
 	// mark time for transparent overlay
 	if ( current >= 0 ) {
 		times[current % NUM_CON_TIMES] = com_frameTime;
@@ -833,8 +898,15 @@ void idConsoleLocal::Linefeed() {
 		display++;
 	}
 	current++;
-	for ( i = 0; i < LINE_WIDTH; i++ ) {
-		text[(current%TOTAL_LINES)*LINE_WIDTH+i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+	for ( i = 0; i < Line_Width; i++ ) {
+		// Marty
+		//text[(current% TotalLines)* Line_Width +i] = (idStr::ColorIndex(C_COLOR_CYAN)<<8) | ' ';
+		if ((i - 1) == Line_Width)
+		{
+			text[(current % TotalLines) * Line_Width + i] = (idStr::ColorIndex(C_COLOR_CYAN) << 8) | '\n';
+		}
+
+		text[(current % TotalLines) * Line_Width + i] = 0;
 	}
 }
 
@@ -850,6 +922,14 @@ void idConsoleLocal::Print( const char *txt ) {
 	int		y;
 	int		c, l;
 	int		color;
+
+	// ====================================================== Marty
+	int				Line_Width = GetLineswidth();
+	int				TotalLines = GetTotalLines();
+	int				SmallCharH = con_fontsizeh.GetInteger();
+	int				SmallCharW = OldFontSizeW;
+
+
 
 #ifdef ID_ALLOW_TOOLS
 	RadiantPrint( txt );
@@ -872,20 +952,30 @@ void idConsoleLocal::Print( const char *txt ) {
 			continue;
 		}
 
-		y = current % TOTAL_LINES;
+		y = current % TotalLines;
 
 		// if we are about to print a new word, check to see
 		// if we should wrap to the new line
-		if ( c > ' ' && ( x == 0 || text[y*LINE_WIDTH+x-1] <= ' ' ) ) {
+		// Marty: changed the Space ' ' (32) to zero.
+		/*
+		if (c > ' ' && (x == 0 || text[y * Line_Width + x - 1] <= ' ')) {
 			// count word length
-			for (l=0 ; l< LINE_WIDTH ; l++) {
-				if ( txt[l] <= ' ') {
+			for (l = 0; l < Line_Width; l++) {
+				if (txt[l] <= ' ') {
+					break;
+				}
+			}
+		*/
+		if ( c > 0 && ( x == 0 || text[y* Line_Width +x-1] <= 0 ) ) {
+			// count word length
+			for (l=0 ; l< Line_Width; l++) {
+				if ( txt[l] <= 0) {
 					break;
 				}
 			}
 
 			// word wrap
-			if (l != LINE_WIDTH && (x + l >= LINE_WIDTH) ) {
+			if (l != Line_Width && (x + l >= Line_Width) ) {
 				Linefeed();
 			}
 		}
@@ -898,9 +988,9 @@ void idConsoleLocal::Print( const char *txt ) {
 				break;
 			case '\t':
 				do {
-					text[y*LINE_WIDTH+x] = (color << 8) | ' ';
+					text[y* Line_Width +x] = (color << 8) | '\t';/* Marty changed text[y * Line_Width + x] = (color << 8) | ' ';*/
 					x++;
-					if ( x >= LINE_WIDTH ) {
+					if ( x >= Line_Width) {
 						Linefeed();
 						x = 0;
 					}
@@ -910,9 +1000,9 @@ void idConsoleLocal::Print( const char *txt ) {
 				x = 0;
 				break;
 			default:	// display character and advance
-				text[y*LINE_WIDTH+x] = (color << 8) | c;
+				text[y* Line_Width +x] = (color << 8) | c;
 				x++;
-				if ( x >= LINE_WIDTH ) {
+				if ( x >= Line_Width) {
 					Linefeed();
 					x = 0;
 				}
@@ -942,12 +1032,26 @@ DRAWING
 DrawInput
 
 Draw the editline after a ] prompt
+ Marty: funktion Changed for font scaling
 ================
+
 */
 void idConsoleLocal::DrawInput() {
 	int y, autoCompleteLength;
 
-	y = vislines - ( SMALLCHAR_HEIGHT * 2 );
+
+	// ====================================================== Marty
+	int				SmallCharH = con_fontsizeh.GetInteger();
+	int				SmallCharW = OldFontSizeW;
+
+	/* Marty -- get the changed Font width */
+	if (OldFontSizeW != con_fontsizew.GetInteger())
+	{
+		OldFontSizeW = SetFontWidth();
+	}
+
+	y = vislines - (SmallCharH * 2 );
+
 
 	if ( consoleField.GetAutoCompleteLength() != 0 ) {
 		autoCompleteLength = strlen( consoleField.GetBuffer() ) - consoleField.GetAutoCompleteLength();
@@ -955,17 +1059,17 @@ void idConsoleLocal::DrawInput() {
 		if ( autoCompleteLength > 0 ) {
 			renderSystem->SetColor4( .8f, .2f, .2f, .45f );
 
-			renderSystem->DrawStretchPic( 2 * SMALLCHAR_WIDTH + consoleField.GetAutoCompleteLength() * SMALLCHAR_WIDTH,
-							y + 2, autoCompleteLength * SMALLCHAR_WIDTH, SMALLCHAR_HEIGHT - 2, 0, 0, 0, 0, whiteShader );
+			renderSystem->DrawStretchPic( 2 * SmallCharW + consoleField.GetAutoCompleteLength() * SmallCharW,
+							y + 2, autoCompleteLength * SmallCharW, SmallCharH - 2, 0, 0, 0, 0, whiteShader );
 
 		}
 	}
 
 	renderSystem->SetColor( idStr::ColorForIndex( C_COLOR_CYAN ) );
 
-	renderSystem->DrawSmallChar( 1 * SMALLCHAR_WIDTH, y, ']', localConsole.charSetShader );
+	tr.DrawSmallCons( 1 * SmallCharW, y, ']', localConsole.charSetShader, con_fontsizeh.GetInteger(), OldFontSizeW);
 
-	consoleField.Draw(2 * SMALLCHAR_WIDTH, y, SCREEN_WIDTH - 3 * SMALLCHAR_WIDTH, true, charSetShader );
+	consoleField.Draw(2 * SmallCharW, y, SCREEN_WIDTH - 3 * SmallCharW, true, charSetShader );
 }
 
 
@@ -974,6 +1078,7 @@ void idConsoleLocal::DrawInput() {
 DrawNotify
 
 Draws the last few lines of output transparently over the game top
+ Marty: funktion Changed for font scaling
 ================
 */
 void idConsoleLocal::DrawNotify() {
@@ -982,6 +1087,12 @@ void idConsoleLocal::DrawNotify() {
 	int		i;
 	int		time;
 	int		currentColor;
+
+	// ====================================================== Marty
+	int				Line_Width = GetLineswidth();
+	int				TotalLines = GetTotalLines();
+	int				SmallCharH = con_fontsizeh.GetInteger();
+	int				SmallCharW = OldFontSizeW;
 
 	if ( con_noPrint.GetBool() ) {
 		return;
@@ -1003,9 +1114,9 @@ void idConsoleLocal::DrawNotify() {
 		if ( time > con_notifyTime.GetFloat() * 1000 ) {
 			continue;
 		}
-		text_p = text + (i % TOTAL_LINES)*LINE_WIDTH;
+		text_p = text + (i % TotalLines)* Line_Width;
 		
-		for ( x = 0; x < LINE_WIDTH; x++ ) {
+		for ( x = 0; x < Line_Width; x++ ) {
 			if ( ( text_p[x] & 0xff ) == ' ' ) {
 				continue;
 			}
@@ -1013,10 +1124,9 @@ void idConsoleLocal::DrawNotify() {
 				currentColor = idStr::ColorIndex(text_p[x]>>8);
 				renderSystem->SetColor( idStr::ColorForIndex( currentColor ) );
 			}
-			renderSystem->DrawSmallChar( (x+1)*SMALLCHAR_WIDTH, v, text_p[x] & 0xff, localConsole.charSetShader );
+			tr.DrawSmallCons((x + 1) * SmallCharW, v, text_p[x] & 0xff, localConsole.charSetShader, con_fontsizeh.GetInteger(), OldFontSizeW);
 		}
-
-		v += SMALLCHAR_HEIGHT;
+		v += SmallCharH;
 	}
 
 	renderSystem->SetColor( colorCyan );
@@ -1027,8 +1137,11 @@ void idConsoleLocal::DrawNotify() {
 DrawSolidConsole
 
 Draws the console with the solid background
+ Marty: funktion Changed for font scaling
 ================
+
 */
+
 void idConsoleLocal::DrawSolidConsole( float frac ) {
 	int				i, x;
 	float			y;
@@ -1038,17 +1151,42 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 	int				lines;
 	int				currentColor;
 
-	lines = idMath::FtoiFast( SCREEN_HEIGHT * frac );
+	// ====================================================== Marty
+	int				Line_Width  = GetLineswidth();
+	int				TotalLines = GetTotalLines();
+	int				SmallCharH = con_fontsizeh.GetInteger();
+	int				SmallCharW = OldFontSizeW;
+
+	int ScreenH;
+
+	ScreenH = con_sizeheight.GetInteger() * frac;
+
+	if (con_sizeheight.GetInteger() < 50)
+	{
+		// Marty - make the size not too small
+		ScreenH = 50;
+		con_sizeheight.SetInteger(ScreenH);
+	}
+	else if (con_sizeheight.GetInteger() > 960) {
+
+		// Marty - make the size not too big
+		ScreenH = 960;
+		con_sizeheight.SetInteger(ScreenH);
+	}
+
+
+	// ===================================================== Default begine
+	lines = idMath::FtoiFast(con_sizeheight.GetInteger() * frac);
 	if ( lines <= 0 ) {
 		return;
 	}
 
-	if ( lines > SCREEN_HEIGHT ) {
-		lines = SCREEN_HEIGHT;
+	if ( lines > ScreenH) {
+		lines = ScreenH;
 	}
 
 	// draw the background
-	y = frac * SCREEN_HEIGHT - 2;
+	y = frac * con_sizeheight.GetInteger() - 2;
 	if ( y < 1.0f ) {
 		y = 0.0f;
 	} else {
@@ -1067,26 +1205,26 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 	i = version.Length();
 
 	for ( x = 0; x < i; x++ ) {
-		renderSystem->DrawSmallChar( SCREEN_WIDTH - ( i - x ) * SMALLCHAR_WIDTH, 
-			(lines-(SMALLCHAR_HEIGHT+SMALLCHAR_HEIGHT/2)), version[x], localConsole.charSetShader );
+		tr.DrawSmallCons(SCREEN_WIDTH - ( i - x ) * SmallCharW,
+			(lines-(SmallCharH + SmallCharH /2)), version[x], localConsole.charSetShader, con_fontsizeh.GetInteger(), OldFontSizeW);
 
 	}
 
 
 	// draw the text
 	vislines = lines;
-	rows = (lines-SMALLCHAR_WIDTH)/SMALLCHAR_WIDTH;		// rows of text to draw
+	rows = (lines- SmallCharW)/ SmallCharW;		// rows of text to draw
 
-	y = lines - (SMALLCHAR_HEIGHT*3);
+	y = lines - (SmallCharH *3);
 
 	// draw from the bottom up
 	if ( display != current ) {
 		// draw arrows to show the buffer is backscrolled
 		renderSystem->SetColor( idStr::ColorForIndex( C_COLOR_CYAN ) );
-		for ( x = 0; x < LINE_WIDTH; x += 4 ) {
-			renderSystem->DrawSmallChar( (x+1)*SMALLCHAR_WIDTH, idMath::FtoiFast( y ), '^', localConsole.charSetShader );
+		for ( x = 0; x < Line_Width; x += 4 ) {
+			tr.DrawSmallCons( (x+1)* SmallCharW, idMath::FtoiFast( y ), '^', localConsole.charSetShader, con_fontsizeh.GetInteger(), OldFontSizeW);
 		}
-		y -= SMALLCHAR_HEIGHT;
+		y -= SmallCharH;
 		rows--;
 	}
 	
@@ -1099,18 +1237,18 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 	currentColor = idStr::ColorIndex( C_COLOR_WHITE );
 	renderSystem->SetColor( idStr::ColorForIndex( currentColor ) );
 
-	for ( i = 0; i < rows; i++, y -= SMALLCHAR_HEIGHT, row-- ) {
+	for ( i = 0; i < rows; i++, y -= SmallCharH, row-- ) {
 		if ( row < 0 ) {
 			break;
 		}
-		if ( current - row >= TOTAL_LINES ) {
+		if ( current - row >= TotalLines ) {
 			// past scrollback wrap point
 			continue;	
 		}
 
-		text_p = text + (row % TOTAL_LINES)*LINE_WIDTH;
+		text_p = text + (row % TotalLines)*Line_Width;
 
-		for ( x = 0; x < LINE_WIDTH; x++ ) {
+		for ( x = 0; x < Line_Width; x++ ) {
 			if ( ( text_p[x] & 0xff ) == ' ' ) {
 				continue;
 			}
@@ -1119,16 +1257,200 @@ void idConsoleLocal::DrawSolidConsole( float frac ) {
 				currentColor = idStr::ColorIndex(text_p[x]>>8);
 				renderSystem->SetColor( idStr::ColorForIndex( currentColor ) );
 			}
-			renderSystem->DrawSmallChar( (x+1)*SMALLCHAR_WIDTH, idMath::FtoiFast( y ), text_p[x] & 0xff, localConsole.charSetShader );
+			tr.DrawSmallCons( (x+1)* SmallCharW, idMath::FtoiFast( y ), text_p[x] & 0xff, localConsole.charSetShader, con_fontsizeh.GetInteger(), OldFontSizeW);
 		}
 	}
 
 	// draw the input prompt, user text, and cursor if desired
 	DrawInput();
 
-	renderSystem->SetColor( colorCyan );
+	renderSystem->SetColor(colorCyan);
 }
 
+/*
+========================
+Con_LinesWidth
+========================
+*/
+int idConsoleLocal::GetTotalLines(void)
+{
+	//int TotalLines = TOTAL_LINES;
+	int TotalLines = (CON_TEXTSIZE / con_linewidth.GetInteger());
+	return TotalLines;
+}
+
+char* ConReFresh_Setup(char* buffer, int len)
+{
+	for (int Index = 0; Index < len; Index++)
+	{
+		buffer[Index] = ' ';
+	}
+	buffer[len] = '\0';
+
+	return buffer;
+}
+/*
+========================
+Con_LinesWidth
+========================
+*/
+int idConsoleLocal::GetLineswidth(void)
+{
+	int OldLines = OldLineLength;
+	int NewLines = con_linewidth.GetInteger();
+
+	/* oldLines und NewLines sind der Zeilenanfang*/
+	if (OldLines != NewLines && OldLineLength > -1 && IsConsoleInit == true)
+	{
+		/* Teste
+			char* buffer;
+			buffer = (char*)malloc(10);
+			ConReFresh_Setup(buffer, 10);
+		*/
+		short		TextCopy[CON_TEXTSIZE];
+		bool		bRichtung{};
+		int			LineSet{};
+		int			ReturnCode{};
+		int			CheckReturn{};
+		int			ConPuffer{};
+		int			CurrentSign{};
+		int			NewPuffer = -1;
+		int			Rest{};
+		int			RestChars{};
+		int			Rvoll{};
+
+		for (ConPuffer = 0; ConPuffer < CON_TEXTSIZE; ConPuffer++) {
+			TextCopy[ConPuffer] = 0;
+		}
+
+		for (ConPuffer = 0; ConPuffer < CON_TEXTSIZE; ConPuffer++)
+		{
+			//if (ConPuffer > 393218 || NewPuffer > 393218) {
+			//if (ConPuffer > 262100 || NewPuffer > 262100) {
+			if (ConPuffer > 190000 || NewPuffer > 190000) {
+				break;
+			}
+
+			CurrentSign = text[ConPuffer];
+
+			if (CurrentSign == 0) /* Zeilenafang keine Zeichen*/
+				continue;
+
+			NewPuffer++;/* Zähler für den ganzen neuen Block */
+
+			for (CheckReturn = 0; CheckReturn < NewLines; CheckReturn++)
+			{
+				TextCopy[(NewPuffer + CheckReturn)] = text[(ConPuffer + CheckReturn)];
+
+				if ((CheckReturn + 1) == NewLines)
+				{
+					NewPuffer = NewPuffer + (NewLines - 1); /* Ein abziehen*/
+					ConPuffer = ConPuffer + (NewLines - 1);
+					break;
+				}
+
+				if (text[ConPuffer + CheckReturn] > 0)
+				{
+					/* Kein Return Code in der ganzen alten zeile*/
+					ReturnCode = 0;
+				}
+				else
+				{
+					/*Return Code 0 Gefunden */
+					ReturnCode = CheckReturn;
+					if (ReturnCode > 0)
+					{
+						Rest = NewLines - ReturnCode;
+
+						for (RestChars = 0; RestChars < Rest; RestChars++)
+						{
+							TextCopy[(NewPuffer + ReturnCode + RestChars)] = 0;
+						}
+						CheckReturn = 0;
+						NewPuffer = NewPuffer + (NewLines - 1); /* Ein abziehen*/
+						ConPuffer = ConPuffer + ReturnCode;
+						break;
+					}
+				}
+			}
+		}
+
+		for (ConPuffer = 0; ConPuffer < CON_TEXTSIZE; ConPuffer++)
+		{
+			//	if (ConPuffer > 393218 ) {
+			//	if (ConPuffer > 262100 ) {	
+			if (ConPuffer > 196000) {
+				break;
+			}
+			text[ConPuffer] = TextCopy[ConPuffer];
+		}
+		OldLineLength = NewLines; /* Zeilenanzahl als Ergebnis global übergeben*/
+
+	}
+
+	return NewLines;
+}
+
+/*
+========================
+Con_NewFontWidth
+========================
+*/
+int idConsoleLocal::SetFontWidth(void)
+{
+
+	int newfontw = con_fontsizew.GetInteger();
+
+
+		if (OldFontSizeW != newfontw)
+		{
+			if (con_linescale.GetBool() == true)
+			{
+				switch (newfontw)
+				{
+					case 3:
+					{
+						con_linewidth.SetInteger(212);
+						break;
+					}
+					case 4:
+					{
+						con_linewidth.SetInteger(158);
+						break;
+					}
+					case 5:
+					{
+						con_linewidth.SetInteger(126);
+						break;
+					}
+					case 6:
+					{
+						con_linewidth.SetInteger(105);
+						break;
+					}
+					case 7:
+					{
+						con_linewidth.SetInteger(90);
+						break;
+					}
+					case 8:
+					{
+						con_linewidth.SetInteger(78);
+						break;
+					}
+					default:
+					{
+						con_linewidth.SetInteger(78);
+						break;
+					}
+				GetLineswidth();
+				}			
+			}
+			Bottom();
+			return newfontw;
+	}
+	return OldFontSizeW;
+}
 
 /*
 ==============

@@ -228,7 +228,8 @@ typedef struct {
 struct brush_s;
 typedef struct brush_s brush_t;
 
-typedef struct {
+
+typedef struct NamedType {
 	int			width, height;		// in control points, not patches
 	int			horzSubdivisions;
 	int			vertSubdivisions;

@@ -79,27 +79,63 @@ int idWaveFile::Open( const char* strFileName, waveformatex_t* pwfx ) {
 
 	idStr name = strFileName;
 
-	// note: used to only check for .wav when making a build
-	name.SetFileExtension( ".ogg" );
-	if ( fileSystem->ReadFile( name, NULL, NULL ) != -1 ) {
-		return OpenOGG( name, pwfx );
-	}
+	if (idSoundSystemLocal::cmp_DefaultOGGLoading.GetInteger() == 1)
+	{
+		// note: used to only check for .wav when making a build
+		name.SetFileExtension(".ogg");
+		if (fileSystem->ReadFile(name, NULL, NULL) != -1) {
+			return OpenOGG(name, pwfx);
+		}
 
-	memset( &mpwfx, 0, sizeof( waveformatextensible_t ) );
+		memset(&mpwfx, 0, sizeof(waveformatextensible_t));
 
-	mhmmio = fileSystem->OpenFileRead( strFileName );
-	if ( !mhmmio ) {
-		mdwSize = 0;
-		return -1;
+		mhmmio = fileSystem->OpenFileRead(strFileName);
+		if (!mhmmio) {
+			mdwSize = 0;
+			return -1;
+		}
+		if (mhmmio->Length() <= 0) {
+			mhmmio = NULL;
+			return -1;
+		}
+		if (ReadMMIO() != 0) {
+			// ReadMMIO will fail if its an not a wave file
+			Close();
+			return -1;
+		}
 	}
-	if ( mhmmio->Length() <= 0 ) {
-		mhmmio = NULL;
-		return -1;
-	}
-	if ( ReadMMIO() != 0 ) {
-		// ReadMMIO will fail if its an not a wave file
-		Close();
-		return -1;
+	else
+	{
+		/* Marty
+		* Load Waves Files. No idea why Ogg files use as Standard. if you have
+		* wave files this will only load as ogg with name.SetFileExtension(".ogg")
+		* I changed this code to load both wave as first, ogg as second.
+		*/
+		#if defined DEBUG
+			if (idStr::Cmp(strFileName, "sound/vo/intro/intro_test12.wav")==0)
+				TRACE("Moment");
+		#endif
+		memset(&mpwfx, 0, sizeof(waveformatextensible_t)); /* ok ? as first */
+
+		mhmmio = fileSystem->OpenFileRead(strFileName);
+
+		if (!mhmmio || mhmmio->Length() <= 0 || ReadMMIO() != 0)
+		{
+			mdwSize = 0;
+			mhmmio	= NULL;
+			
+			Close();
+
+			/* Load as Ogg */
+			name.SetFileExtension(".ogg");
+			if (fileSystem->ReadFile(name, NULL, NULL) != -1)
+			{
+				#if defined DEBUG
+					TRACE("idWaveFile::Open (!mhmmio) as OGG '%s'\r", strFileName);
+				#endif		
+				return OpenOGG(name, pwfx);
+			}
+		}		
 	}
 
 	mfileTime = mhmmio->Timestamp();
@@ -108,6 +144,10 @@ int idWaveFile::Open( const char* strFileName, waveformatex_t* pwfx ) {
 		Close();
 		return -1;
 	}
+
+	#if defined DEBUG
+		TRACE("idWaveFile::Open as WAVE '%s'\r", strFileName);
+	#endif // defined DEBUG	
 
 	// After the reset, the size of the wav file is mck.cksize so store it now
 	mdwSize = mck.cksize / sizeof( short );
@@ -159,6 +199,7 @@ int idWaveFile::ReadMMIO( void ) {
 
 	// Check to make sure this is a valid wave file
 	if( (mckRiff.ckid != fourcc_riff) || (mckRiff.fccType != mmioFOURCC('W', 'A', 'V', 'E') ) ) {
+		common->Printf("^3---- Sample File: ^8WAV ^1%s ^0( Has no Wave or Riff Header)\n", mhmmio->GetName());
 		return -1;
 	}
 
@@ -195,12 +236,36 @@ int idWaveFile::ReadMMIO( void ) {
 	// Copy the bytes from the pcm structure to the waveformatex_t structure
 	memcpy( &mpwfx, &pcmWaveFormat, sizeof(pcmWaveFormat) );
 
+	/* Marty -- Show WAV Sample Loading*/
+	if (idSoundSystemLocal::s_ShowSampleWAVLoading.GetInteger() == 1)
+	{
+		switch (pcmWaveFormat.wf.nSamplesPerSec)
+		{
+		case 11025:
+		case 22050:
+		case 44100:
+			break;
+		default:
+			common->Printf("^3---- Sample File: ^8WAV ^1%s ^0( Channels:%s - ^1%dHZ^0 - Bits:%d )\n", mhmmio->GetName(), pcmWaveFormat.wf.nChannels ? "Mono" : "Stereo", pcmWaveFormat.wf.nSamplesPerSec, pcmWaveFormat.wBitsPerSample);
+			common->Warning("Sample File: %s  Format Expected 11025HZ or 22050HZ or 41000HZ", mhmmio->GetName());
+			return -1;
+		}
+
+		if (pcmWaveFormat.wBitsPerSample != 16) {
+			common->Printf("^3---- Sample File: ^8WAV ^1%s ^0( Channels:%s - %dhz - Bits:^1%d^0 )\n", mhmmio->GetName(), pcmWaveFormat.wf.nChannels ? "Mono" : "Stereo", pcmWaveFormat.wf.nSamplesPerSec, pcmWaveFormat.wBitsPerSample);
+			common->Warning("Sample File: %s  Format Expected 16it", mhmmio->GetName());
+			return -1;
+		}
+	}
+
 	// Allocate the waveformatex_t, but if its not pcm format, read the next
 	// word, and thats how many extra bytes to allocate.
-	if( pcmWaveFormat.wf.wFormatTag == WAVE_FORMAT_TAG_PCM ) {
-		mpwfx.Format.cbSize = 0;
+	if( pcmWaveFormat.wf.wFormatTag == WAVE_FORMAT_TAG_PCM) {
+			mpwfx.Format.cbSize = 0;
 	} else {
-		return -1;	// we don't handle these (32 bit wavefiles, etc)
+			common->Printf("^3-??- Sample File: ^8WAV ^1%s ^0( Channels:%s - %dhz - Bits:%d)\n", mhmmio->GetName(),	pcmWaveFormat.wf.wFormatTag,pcmWaveFormat.wf.nChannels ? "Mono" : "Stereo",	pcmWaveFormat.wf.nSamplesPerSec, pcmWaveFormat.wBitsPerSample);			
+		
+			return 1;	// we don't handle these (32 bit wavefiles, etc)
 #if 0
 		// Read in length of extra bytes.
 		word cbExtraBytes = 0L;
@@ -216,6 +281,9 @@ int idWaveFile::ReadMMIO( void ) {
 		}
 #endif
 	}
+
+	if (idSoundSystemLocal::s_ShowSampleWAVLoading.GetInteger() == 1) /* Marty -- Show WAV Sample Loading*/
+		common->Printf("^3Open Sample File: ^8WAV ^0%s\n", mhmmio->GetName());
 
 	return 0;
 }

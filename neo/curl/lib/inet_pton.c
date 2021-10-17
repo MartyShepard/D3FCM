@@ -44,9 +44,9 @@
 #define	INADDRSZ	 4
 #define	INT16SZ		 2
 
-#ifdef WIN32
-#define EAFNOSUPPORT    WSAEAFNOSUPPORT
-#endif
+//#ifdef WIN32
+//#define EAFNOSUPPORT    WSAEAFNOSUPPORT
+//#endif
 
 /*
  * WARNING: Don't even consider trying to compile this on a system where

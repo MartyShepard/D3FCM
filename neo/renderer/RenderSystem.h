@@ -88,6 +88,9 @@ typedef struct glconfig_s {
 	int					displayFrequency;
 
 	bool				isFullscreen;
+	bool				isBorderless;	// Marty - Borderless
+	int					con_fontsizeh;
+	int					con_fontsizew;
 
 	bool				allowNV30Path;
 	bool				allowNV20Path;
@@ -147,6 +150,9 @@ const int SMALLCHAR_WIDTH		= 8;
 const int SMALLCHAR_HEIGHT		= 16;
 const int BIGCHAR_WIDTH			= 16;
 const int BIGCHAR_HEIGHT		= 16;
+
+const int CONCHAR_HEIGHT		= 16;
+const int CONCHAR_WIDTH			= 8;
 
 // all drawing is done to a 640 x 480 virtual screen size
 // and will be automatically scaled to the real resolution
@@ -209,6 +215,10 @@ public:
 	virtual void			DrawSmallStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) = 0;
 	virtual void			DrawBigChar( int x, int y, int ch, const idMaterial *material ) = 0;
 	virtual void			DrawBigStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) = 0;
+	
+	// Marty -- Console Crash ? Why
+	//virtual void			SmallConsoleDraws(int x, int y, int ch, const idMaterial *material) = 0;/*DrawSmallChar*/
+	//virtual void			SmallConsoleStrings(int x, int y, const char* string, const idVec4 &setColor, bool forceColor, const idMaterial *material) = 0;/*DrawSmallStringExt*/
 
 	// dump all 2D drawing so far this frame to the demo file
 	virtual void			WriteDemoPics() = 0;

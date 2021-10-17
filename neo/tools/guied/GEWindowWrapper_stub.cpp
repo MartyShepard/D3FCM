@@ -33,9 +33,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../ui/BindWindow.h"
 #include "../../ui/RenderWindow.h"
 #include "../../ui/ChoiceWindow.h"
-
 #include "GEWindowWrapper.h"
-
+#if !defined(ID_ALLOW_TOOLS)
 static rvGEWindowWrapper stub_wrap( NULL, rvGEWindowWrapper::WT_UNKNOWN );
 
 rvGEWindowWrapper::rvGEWindowWrapper( idWindow* window, EWindowType type ) { }
@@ -45,3 +44,4 @@ rvGEWindowWrapper* rvGEWindowWrapper::GetWrapper ( idWindow* window ) { return &
 void rvGEWindowWrapper::SetStateKey( const char*, const char*, bool ) { }
 
 void rvGEWindowWrapper::Finish() { }
+#endif

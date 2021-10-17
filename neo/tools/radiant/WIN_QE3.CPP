@@ -336,7 +336,7 @@ void OpenDialog(void) {
 	}
 
 	if (g_PrefsDlg.m_strMaps.GetLength() > 0) {
-		strcat(szDirName, va("\\%s", g_PrefsDlg.m_strMaps));
+		strcat(szDirName, va("\\%s", g_PrefsDlg.m_strMaps.GetString()));
 	}
 
 	/* Place the terminating null character in the szFile. */
@@ -422,7 +422,7 @@ void SaveAsDialog(bool bRegion) {
 	AddSlash(strPath);
 	strPath += "maps";
 	if (g_PrefsDlg.m_strMaps.GetLength() > 0) {
-		strPath += va("\\%s", g_PrefsDlg.m_strMaps);
+		strPath += va("\\%s", g_PrefsDlg.m_strMaps.GetString());
 	}
 
 	/* Place the terminating null character in the szFile. */

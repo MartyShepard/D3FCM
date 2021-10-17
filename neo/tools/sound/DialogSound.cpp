@@ -150,8 +150,7 @@ END_MESSAGE_MAP()
 void SoundEditorInit( const idDict *spawnArgs ) {
 
 	if ( renderSystem->IsFullScreen() ) {
-		common->Printf( "Cannot run the sound editor in fullscreen mode.\n"
-					"Set r_fullscreen to 0 and vid_restart.\n" );
+		common->Printf("Cannot run the script editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart or press alt & return \n");
 		return;
 	}
 
@@ -161,6 +160,10 @@ void SoundEditorInit( const idDict *spawnArgs ) {
 	}
 
 	if ( g_SoundDialog->GetSafeHwnd() == NULL ) {
+
+		/*Marty*/
+		Sys_GrabMouseCursor(false);
+
 		g_SoundDialog->Create(IDD_DIALOG_SOUND);
 /*
 		// FIXME: restore position
@@ -198,6 +201,10 @@ void SoundEditorRun( void ) {
 void SoundEditorShutdown( void ) {
 	delete g_SoundDialog;
 	g_SoundDialog = NULL;
+
+	/*Marty*/
+	Sys_GrabMouseCursor(true);
+
 }
 
 void CDialogSound::OnActivate( UINT nState, CWnd *pWndOther, BOOL bMinimized ) {

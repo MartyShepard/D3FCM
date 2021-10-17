@@ -35,6 +35,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "UserInterfaceLocal.h"
 
 extern idCVar r_skipGuiShaders;		// 1 = don't render any gui elements on surfaces
+extern idCVar r_scaleMenusTo43; // DG: for the "scale menus to 4:3" hack
 
 idUserInterfaceManagerLocal	uiManagerLocal;
 idUserInterfaceManager *	uiManager = &uiManagerLocal;
@@ -181,19 +182,55 @@ void idUserInterfaceManagerLocal::DeAlloc( idUserInterface *gui ) {
 	}
 }
 
-idUserInterface *idUserInterfaceManagerLocal::FindGui( const char *qpath, bool autoLoad, bool needUnique, bool forceNOTUnique ) {
+/* Marty -- a simple return to get the current Gui Index Numbers */
+int idUserInterfaceManagerLocal::GetNumGuis()
+{
+	const int c = guis.Num();
+	#if defined DEBUG
+		TRACE("idUserInterfaceManagerLocal::GetNumGui: Current Guis: %d\r", c);
+	#endif
+	return c;
+}
+
+/* Marty -- remove gui zombie number */
+idUserInterface* idUserInterfaceManagerLocal::DeleteClosedGui()
+{
+	const int c = guis.Num();
+	#if defined DEBUG
+		TRACE("idUserInterfaceManagerLocal::DeleteClosedGui: Old Guis index: %d\r", guis.Num());
+	#endif
+	guis.RemoveIndex(c-1);
+	#if defined DEBUG
+		TRACE("idUserInterfaceManagerLocal::DeleteClosedGui: New Guis Index: %d\r", guis.Num());
+	#endif
+	return 0;
+}
+
+idUserInterface *idUserInterfaceManagerLocal::FindGui( const char *qpath, bool autoLoad, bool needUnique, bool forceNOTUnique ) {	
 	int c = guis.Num();
 
 	for ( int i = 0; i < c; i++ ) {
+
 		idUserInterfaceLocal *gui = guis[i];
-		if ( !idStr::Icmp( guis[i]->GetSourceFile(), qpath ) ) {
+		if ( gui == NULL ) {
+			continue;
+		}
+		#if defined DEBUG
+			TRACE("idUserInterfaceManagerLocal::FindGui A # guis[%d]->GetSourceFile(): %s - qpath: %s\r", i, guis[i]->GetSourceFile(), qpath);
+		#endif
+		if ( !idStr::Icmp( gui->GetSourceFile(), qpath ) ) {
 			if ( !forceNOTUnique && ( needUnique || guis[i]->IsInteractive() ) ) {
 				break;
 			}
-			guis[i]->AddRef();
-			return guis[i];
+			// Reload the gui if it's been cleared
+				if ( guis[i]->GetRefs() == 0 )
+				{
+				guis[i]->InitFromFile( guis[i]->GetSourceFile() );
+				}
+				guis[i]->AddRef();
+				return guis[i];
+			}
 		}
-	}
 
 	if ( autoLoad ) {
 		idUserInterface *gui = Alloc();
@@ -336,15 +373,51 @@ const char *idUserInterfaceLocal::HandleEvent( const sysEvent_t *event, int _tim
 
 	time = _time;
 
-	if ( bindHandler && event->evType == SE_KEY && event->evValue2 == 1 ) {
-		const char *ret = bindHandler->HandleEvent( event, updateVisuals );
+	if (bindHandler && event->evType == SE_KEY && event->evValue2 == 1) {
+		const char* ret = bindHandler->HandleEvent(event, updateVisuals);
 		bindHandler = NULL;
 		return ret;
 	}
 
-	if ( event->evType == SE_MOUSE ) {
-		cursorX += event->evValue;
-		cursorY += event->evValue2;
+	if (event->evType == SE_MOUSE) {
+		if (!desktop || (desktop->GetFlags() & WIN_MENUGUI)) {
+			// DG: this is a fullscreen GUI, scale the mousedelta added to cursorX/Y
+			//     by 640/w, because the GUI pretends that everything is 640x480
+			//     even if the actual resolution is higher => mouse moved too fast
+			float w = renderSystem->GetScreenWidth();
+			float h = renderSystem->GetScreenHeight();
+			if (w <= 0.0f || h <= 0.0f) {
+				w = VIRTUAL_WIDTH;
+				h = VIRTUAL_HEIGHT;
+			}
+
+			if (r_scaleMenusTo43.GetBool()) {
+				// in case we're scaling menus to 4:3, we need to take that into account
+				// when scaling the mouse events.
+				// no, we can't just call uiManagerLocal.dc.GetFixScaleForMenu() or sth like that,
+				// because when we're here dc.SetMenuScaleFix(true) is not active and it'd just return (1, 1)!
+				float aspectRatio = w / h;
+				static const float virtualAspectRatio = float(VIRTUAL_WIDTH) / float(VIRTUAL_HEIGHT); // 4:3
+				if (aspectRatio > 1.4f) {
+					// widescreen (4:3 is 1.333 3:2 is 1.5, 16:10 is 1.6, 16:9 is 1.7778)
+					// => we need to modify cursorX scaling, by modifying w
+					w *= virtualAspectRatio / aspectRatio;
+				}
+				else if (aspectRatio < 1.24f) {
+					// portrait-mode, "thinner" than 5:4 (which is 1.25)
+					// => we need to scale cursorY via h
+					h *= aspectRatio / virtualAspectRatio;
+				}
+			}
+
+			cursorX += event->evValue * (float(VIRTUAL_WIDTH) / w);
+			cursorY += event->evValue2 * (float(VIRTUAL_HEIGHT) / h);
+		}
+		else {
+			// not a fullscreen GUI but some ingame thing - no scaling needed
+			cursorX += event->evValue;
+			cursorY += event->evValue2;
+		}
 
 		if (cursorX < 0) {
 			cursorX = 0;
@@ -354,9 +427,9 @@ const char *idUserInterfaceLocal::HandleEvent( const sysEvent_t *event, int _tim
 		}
 	}
 
-	if ( desktop ) {
-		return desktop->HandleEvent( event, updateVisuals );
-	} 
+	if (desktop) {
+		return desktop->HandleEvent(event, updateVisuals);
+	}
 
 	return "";
 }
@@ -428,7 +501,21 @@ float idUserInterfaceLocal::GetStateFloat( const char *varName, const char* defa
 void idUserInterfaceLocal::StateChanged( int _time, bool redraw ) {
 	time = _time;
 	if (desktop) {
-		desktop->StateChanged( redraw );
+		// DG: little hack: allow game DLLs to do
+		//     ui->SetStateBool("scaleto43", true);
+		//     ui->StateChanged(gameLocal.time);
+		//     so we can force cursors.gui (crosshair) to be scaled, for example
+		bool scaleTo43 = false;
+		if (state.GetBool("scaleto43", "0", scaleTo43)) {
+			if (scaleTo43) {
+				desktop->SetFlag(WIN_SCALETO43);
+			}
+			else
+				desktop->ClearFlag(WIN_SCALETO43);
+		}
+		// DG end
+
+		desktop->StateChanged(redraw);
 	}
 	if ( state.GetBool( "noninteractive" ) ) {
 		interactive = false;

@@ -69,6 +69,10 @@ idCVar idSoundSystemLocal::s_reverbFeedback( "s_reverbFeedback", "0.333", CVAR_S
 idCVar idSoundSystemLocal::s_enviroSuitVolumeScale( "s_enviroSuitVolumeScale", "0.9", CVAR_SOUND | CVAR_FLOAT, "" );
 idCVar idSoundSystemLocal::s_skipHelltimeFX( "s_skipHelltimeFX", "0", CVAR_SOUND | CVAR_BOOL, "" );
 
+idCVar idSoundSystemLocal::cmp_DefaultOGGLoading("cmp_DefaultOGGLoading", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "By default, Doom3 open OGG sample files. In each case as it is defined\n.0 = Wave is prioritized and wave files are always loaded first instead of OGG files.\n1 = Use the standard engine setting how the Sample Files are defined. Note: Need Engine Restart\n",0,1);
+idCVar idSoundSystemLocal::s_ShowSampleWAVLoading("s_ShowSampleWAVLoading", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "1 = Show in the console which Wav Sample file(s) are loadng.");
+idCVar idSoundSystemLocal::s_ShowSampleOGGLoading("s_ShowSampleOGGLoading", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "1 = Show in the console which Ogg Sample file(s) are loadng.");
+
 #if ID_OPENAL
 // off by default. OpenAL DLL gets loaded on-demand
 idCVar idSoundSystemLocal::s_libOpenAL( "s_libOpenAL", "openal32.dll", CVAR_SOUND | CVAR_ARCHIVE, "OpenAL DLL name/path" );
@@ -299,9 +303,12 @@ void idSoundSystemLocal::Init() {
 
 	common->Printf( "----- Initializing Sound System ------\n" );
 
-	isInitialized = false;
-	muted = false;
-	shutdown = false;
+	isInitialized	= false;
+	muted			= false;
+	shutdown		= false;
+	bool bIsVersion = false;
+	bool isEmulated = false;
+	idStr    sVersion;
 
 	currentSoundWorld = NULL;
 	soundCache = NULL;
@@ -334,38 +341,97 @@ void idSoundSystemLocal::Init() {
 	common->StartupVariable( "s_useOpenAL", true );
 	common->StartupVariable( "s_useEAXReverb", true );
 
+	/* Marty -- Forcing OpenAL */
+	idSoundSystemLocal::s_useOpenAL.SetBool(true);
+	idSoundSystemLocal::s_useEAXReverb.SetBool(true);
+
 	if ( idSoundSystemLocal::s_useOpenAL.GetBool() || idSoundSystemLocal::s_useEAXReverb.GetBool() ) {
 		if ( !Sys_LoadOpenAL() ) {
 			idSoundSystemLocal::s_useOpenAL.SetBool( false );
 		} else {
-			common->Printf( "Setup OpenAL device and context... " );
+			common->Printf( "\rOpenAL: Create Device and Context... " );
 			openalDevice = alcOpenDevice( NULL );
 			openalContext = alcCreateContext( openalDevice, NULL );
 			alcMakeContextCurrent( openalContext );
 			common->Printf( "Done.\n" );
 
 			// try to obtain EAX extensions
-			if ( idSoundSystemLocal::s_useEAXReverb.GetBool() && alIsExtensionPresent( ID_ALCHAR "EAX4.0" ) ) {
-				idSoundSystemLocal::s_useOpenAL.SetBool( true );	// EAX presence causes AL enable
-				alEAXSet = (EAXSet)alGetProcAddress( ID_ALCHAR "EAXSet" );
-				alEAXGet = (EAXGet)alGetProcAddress( ID_ALCHAR "EAXGet" );
-				common->Printf( "OpenAL: found EAX 4.0 extension\n" );
-			} else {
-				common->Printf( "OpenAL: EAX 4.0 extension not found\n" );
-				idSoundSystemLocal::s_useEAXReverb.SetBool( false );
-				alEAXSet = (EAXSet)NULL;
-				alEAXGet = (EAXGet)NULL;
+			/*
+			* Marty -- OpenAL32.dll Versions checking
+			* Default OpenAL32 has'nt EAX x.x versions Strings
+			* I know 2.1.8.1 and 2.2.0.7
+			*/
+			if (idSoundSystemLocal::s_useEAXReverb.GetBool())
+			{
+				if (alIsExtensionPresent(ID_ALCHAR "EAX 1.0"))
+				{
+					common->Printf("OpenAL: EAX 1.0 found\n");
+					bIsVersion = true; sVersion = "1.0";
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX2.0"))
+				{
+					common->Printf("OpenAL: EAX 2.0 found \n");
+					bIsVersion = true; sVersion = "2.0";
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX2.5"))
+				{
+					common->Printf("OpenAL: EAX 2.5 found \n");
+					bIsVersion = true; sVersion = "3.0";
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX3.0"))
+				{
+					common->Printf("OpenAL: EAX 3.0 found \n");
+					bIsVersion = true; sVersion = "3.0";
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX3.0EMULATED"))
+				{
+					common->Printf("OpenAL: EAX 3.0 Emulated\n");
+					bIsVersion = true; sVersion = "3.0"; isEmulated = true;
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX4.0")) {
+					common->Printf("OpenAL: EAX 4.0 found \n");
+					bIsVersion = true; sVersion = "4.0";
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX4.0EMULATED") || alIsExtensionPresent(ID_ALCHAR "EAX4.0Emulated"))
+				{
+					common->Printf("OpenAL: EAX 4.0 Emulated\n");
+					bIsVersion = true; sVersion = "4.0"; isEmulated = true;
+				}
+				if (alIsExtensionPresent(ID_ALCHAR "EAX5.0"))
+				{
+					common->Printf("OpenAL: EAX 5.0 found \n");
+					bIsVersion = true; sVersion = "5.0"; /* 5.0 no idea .... */
+				}
+				
+				if (bIsVersion)
+				{
+					idSoundSystemLocal::s_useOpenAL.SetBool(true);	// EAX presence causes AL enable
+					alEAXSet = (EAXSet)alGetProcAddress(ID_ALCHAR "EAXSet");
+					alEAXGet = (EAXGet)alGetProcAddress(ID_ALCHAR "EAXGet");
+					if (isEmulated ) {
+						common->Printf("OpenAL: EAX %s Extension found\n", sVersion.c_str());
+					}
+					else
+					{
+						common->Printf("OpenAL: EAX %s Extension found (Emulated)\n", sVersion.c_str());
+					}
+				}
+				else {
+					common->Printf("OpenAL: EAX - No extension not found\n");
+					idSoundSystemLocal::s_useEAXReverb.SetBool(false);
+					alEAXSet = (EAXSet)NULL;
+					alEAXGet = (EAXGet)NULL;
+				}
 			}
-
 			// try to obtain EAX-RAM extension - not required for operation
 			if ( alIsExtensionPresent( ID_ALCHAR "EAX-RAM" ) == AL_TRUE ) {
 				alEAXSetBufferMode = (EAXSetBufferMode)alGetProcAddress( ID_ALCHAR "EAXSetBufferMode" );
 				alEAXGetBufferMode = (EAXGetBufferMode)alGetProcAddress( ID_ALCHAR "EAXGetBufferMode" );
-				common->Printf( "OpenAL: found EAX-RAM extension, %dkB\\%dkB\n", alGetInteger( alGetEnumValue( ID_ALCHAR "AL_EAX_RAM_FREE" ) ) / 1024, alGetInteger( alGetEnumValue( ID_ALCHAR "AL_EAX_RAM_SIZE" ) ) / 1024 );
+				common->Printf( "OpenAL: EAX-RAM Extension found with %dkB\\%dkB\n", alGetInteger( alGetEnumValue( ID_ALCHAR "AL_EAX_RAM_FREE" ) ) / 1024, alGetInteger( alGetEnumValue( ID_ALCHAR "AL_EAX_RAM_SIZE" ) ) / 1024 );
 			} else {
 				alEAXSetBufferMode = (EAXSetBufferMode)NULL;
 				alEAXGetBufferMode = (EAXGetBufferMode)NULL;
-				common->Printf( "OpenAL: no EAX-RAM extension\n" );
+				common->Printf( "OpenAL: EAX-RAM: No Extension\n" );
 			}
 
 			if ( !idSoundSystemLocal::s_useOpenAL.GetBool() ) {

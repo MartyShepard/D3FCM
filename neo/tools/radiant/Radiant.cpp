@@ -102,6 +102,11 @@ void RadiantInit( void ) {
 		return;
 	}
 
+	if (renderSystem->IsFullScreen()) {
+		common->Printf("Cannot run the Radiant Editor in fullscreen mode. Set r_fullscreen to 0 and vid_restart or press alt & return \n");
+		return;
+	}
+
 	g_editorAlive = true;
 
 	// allocate a renderWorld and a soundWorld
@@ -139,7 +144,10 @@ void RadiantInit( void ) {
 		qwglMakeCurrent(win32.hDC, win32.hGLRC);
 
 		// hide the doom window by default
+		::ShowWindow(win32.hWnd,  SW_MINIMIZE);
 		::ShowWindow( win32.hWnd, SW_HIDE );
+
+		g_pParentWnd->ShowWindow(SW_MAXIMIZE); /*Marty*/
 	}
 }
 

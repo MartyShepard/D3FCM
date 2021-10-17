@@ -1456,6 +1456,12 @@ idWeapon::ShowCrosshair
 ================
 */
 bool idWeapon::ShowCrosshair( void ) const {
+	
+	// jkrige - crosshair control - begin
+	if (owner->CanShowCrosshair() == false)
+		return false;
+	// jkrige - crosshair control - end
+
 	return !( state == idStr( WP_RISING ) || state == idStr( WP_LOWERING ) || state == idStr( WP_HOLSTERED ) );
 }
 

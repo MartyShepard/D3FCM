@@ -118,6 +118,7 @@ private:
 };
 
 ID_INLINE idRandom2::idRandom2( unsigned long seed ) {
+	
 	this->seed = seed;
 }
 

@@ -55,6 +55,9 @@ If you have questions concerning this license or the applicable additional terms
 #define PATHSEPERATOR_CHAR				'\\'
 
 #define ID_INLINE						__forceinline
+// DG: alternative to forced inlining of ID_INLINE for functions that do alloca()
+//     and are called in a loop so inlining them might cause stack overflow
+#define ID_MAYBE_INLINE					__inline
 #define ID_STATIC_TEMPLATE				static
 
 #define assertmem( x, y )				assert( _CrtIsValidPointer( x, y, true ) )
@@ -491,7 +494,7 @@ typedef struct {
 	unsigned long	threadId;
 } xthreadInfo;
 
-const int MAX_THREADS				= 10;
+const int MAX_THREADS				= 25; //10
 extern xthreadInfo *g_threads[MAX_THREADS];
 extern int			g_thread_count;
 

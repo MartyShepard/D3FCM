@@ -155,6 +155,10 @@ public:
 
 								// De-allocates a list gui
 	virtual void				FreeListGUI( idListGUI *listgui ) = 0;
+
+	
+	virtual idUserInterface*	DeleteClosedGui() = 0;		/* Marty DeleteClosedGui*/
+	virtual int					GetNumGuis() = 0;			/* Marty GetNumGuis*/
 };
 
 extern idUserInterfaceManager *	uiManager;

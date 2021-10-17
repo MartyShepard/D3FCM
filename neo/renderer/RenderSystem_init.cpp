@@ -48,9 +48,12 @@ idCVar r_inhibitFragmentProgram( "r_inhibitFragmentProgram", "0", CVAR_RENDERER 
 idCVar r_glDriver( "r_glDriver", "", CVAR_RENDERER, "\"opengl32\", etc." );
 idCVar r_useLightPortalFlow( "r_useLightPortalFlow", "1", CVAR_RENDERER | CVAR_BOOL, "use a more precise area reference determination" );
 idCVar r_multiSamples( "r_multiSamples", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "number of antialiasing samples" );
-idCVar r_mode( "r_mode", "3", CVAR_ARCHIVE | CVAR_RENDERER | CVAR_INTEGER, "video mode number" );
+idCVar r_mode( "r_mode", "-2", CVAR_ARCHIVE | CVAR_RENDERER | CVAR_INTEGER, "Video Mode Number.\n  -1 = use Custom Resolution\n  -2 = use Desktop Resolution" );
 idCVar r_displayRefresh( "r_displayRefresh", "0", CVAR_RENDERER | CVAR_INTEGER | CVAR_NOCHEAT, "optional display refresh rate option for vid mode", 0.0f, 200.0f );
 idCVar r_fullscreen( "r_fullscreen", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "0 = windowed, 1 = full screen" );
+idCVar r_borderless("r_borderless", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "1 = borderless & center window, 0 = default & don't center window");// Marty Borderless
+idCVar r_aspectRatio("r_aspectRatio", "-1", CVAR_RENDERER | CVAR_INTEGER | CVAR_ARCHIVE, "aspect ratio of view:\n0 = 4:3\n1 = 16:9\n2 = 16:10\n3 = 5:3\n4 = 5:4\n5 = 14:9\n6 = 21:9\n7 = 32:9\n-1 = auto (guess from resolution)", -1, 7);
+
 idCVar r_customWidth( "r_customWidth", "720", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "custom screen width. set r_mode to -1 to activate" );
 idCVar r_customHeight( "r_customHeight", "486", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "custom screen height. set r_mode to -1 to activate" );
 idCVar r_singleTriangle( "r_singleTriangle", "0", CVAR_RENDERER | CVAR_BOOL, "only draw a single triangle per primitive" );
@@ -220,6 +223,21 @@ idCVar r_debugPolygonFilled( "r_debugPolygonFilled", "1", CVAR_RENDERER | CVAR_B
 idCVar r_materialOverride( "r_materialOverride", "", CVAR_RENDERER, "overrides all materials", idCmdSystem::ArgCompletion_Decl<DECL_MATERIAL> );
 
 idCVar r_debugRenderToTexture( "r_debugRenderToTexture", "0", CVAR_RENDERER | CVAR_INTEGER, "" );
+
+// DG: let users disable the "scale menus to 4:3" hack
+idCVar r_scaleMenusTo43("r_scaleMenusTo43", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "Scale menus, fullscreen videos and PDA to 4:3 aspect ratio");
+// DG: the fscking patent has finally expired
+
+// Marty - Let the user scale the console font and the height of the console window
+idCVar con_fontsizew("con_fontsize_width", "8", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "Scale Console Font Width (8 is default and maximum, 3 Minimum) ", 3, 8);
+idCVar con_fontsizeh("con_fontsize_height", "16", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "Scale Console Font height (16 is default and maximum, 5 minimum)", 5, 16);
+idCVar con_sizeheight("con_sizeHeight", "480", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "Set Console Height (480 is Default, 960 is Maximum, 50 is Minimum)", 50 , 960);
+idCVar con_linewidth("con_sizeLinewidth", "78", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "Set Console Line Width (78 is Default and Minimum, 212 is Maximum)", 78, 212);
+idCVar con_linescale("con_sizeLineScale", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "1 = Scale the the console Font width with the line width.");
+// Marty - Let the user scale the console font and the height of the console window
+
+idCVar cmp_usedefmodeindex("cmp_UseDefModeIndex", "0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_BOOL, "Compatibilty Fix: 1 = Use Default Resolution Index. [- Need a Doom3 Restart -]");// Marty Compatibility Fix#1
+
 
 void ( APIENTRY * qglMultiTexCoord2fARB )( GLenum texture, GLfloat s, GLfloat t );
 void ( APIENTRY * qglMultiTexCoord2fvARB )( GLenum texture, GLfloat *st );
@@ -529,11 +547,11 @@ static void R_CheckPortableExtensions( void ) {
 			common->Error( common->GetLanguageDict()->GetString( "#str_06780" ) );
 	}
 
- 	// GL_EXT_depth_bounds_test
- 	glConfig.depthBoundsTestAvailable = R_CheckExtension( "EXT_depth_bounds_test" );
- 	if ( glConfig.depthBoundsTestAvailable ) {
- 		qglDepthBoundsEXT = (PFNGLDEPTHBOUNDSEXTPROC)GLimp_ExtensionPointer( "glDepthBoundsEXT" );
- 	}
+	// GL_EXT_depth_bounds_test
+	glConfig.depthBoundsTestAvailable = R_CheckExtension( "EXT_depth_bounds_test" );
+	if ( glConfig.depthBoundsTestAvailable ) {
+		qglDepthBoundsEXT = (PFNGLDEPTHBOUNDSEXTPROC)GLimp_ExtensionPointer( "glDepthBoundsEXT" );
+	}
 
 }
 
@@ -549,43 +567,183 @@ will be used instead.
 ====================
 */
 typedef struct vidmode_s {
-    const char *description;
-    int         width, height;
+	const char *description;
+	int         width, height;
+	int			conwidth, conheight;
+	int			aspect; ///< pixel aspect
+	int			scale;
 } vidmode_t;
 
 vidmode_t r_vidModes[] = {
-    { "Mode  0: 320x240",		320,	240 },
-    { "Mode  1: 400x300",		400,	300 },
-    { "Mode  2: 512x384",		512,	384 },
-    { "Mode  3: 640x480",		640,	480 },
-    { "Mode  4: 800x600",		800,	600 },
-    { "Mode  5: 1024x768",		1024,	768 },
-    { "Mode  6: 1152x864",		1152,	864 },
-    { "Mode  7: 1280x1024",		1280,	1024 },
-    { "Mode  8: 1600x1200",		1600,	1200 },
+	
+	/*
+	{ "Mode  0: 320x240",		320,	240 },
+	{ "Mode  1: 400x300",		400,	300 },
+	{ "Mode  2: 512x384",		512,	384 },
+	{ "Mode  3: 640x480",		640,	480 },
+	{ "Mode  4: 800x600",		800,	600 },
+	{ "Mode  5: 1024x768",		1024,	768 },
+	{ "Mode  6: 1152x864",		1152,	864 },
+	{ "Mode  7: 1280x1024",		1280,	1024 },
+	{ "Mode  8: 1600x1200",		1600,	1200 },
+	*/
+
+	/* ====Marty==================== Standard Modes. Order by Compatibilty ===================*/
+	{"Mode  0:  320 x  240  Aspect  4:3  Standard"              ,  320, 240, 320, 240, 0, 0  },
+	{"Mode  1:  400 x  300  Aspect  4:3  Standard"              ,  400, 300, 400, 300, 0, 0  },
+	{"Mode  2:  512 x  384  Aspect  4:3  Standard"              ,  512, 384, 512, 384, 0, 0  },
+	{"Mode  3:  640 x  480  Aspect  4:3  Standard"              ,  640, 480, 640, 480, 0, 0  },
+	{"Mode  4:  800 x  600  Aspect  4:3  Standard"              ,  800, 600, 640, 480, 0, 0  },
+	{"Mode  5: 1024 x  768  Aspect  4:3  Standard"              , 1024, 768, 640, 480, 0, 0  },
+	{"Mode  6: 1152 x  864  Aspect  4:3  Standard"              , 1152, 864, 640, 480, 0, 0  },
+	{"Mode  7: 1280 x 1024  Aspect  5:4  Square Pixel (LCD)"    , 1280,1024, 640, 512, 0, 0  },
+	{"Mode  8: 1600 x 1200  Aspect  4:3  Standard"              , 1600,1200, 640, 480, 0, 0  },
+	/* ============================ Extended Modes DG Variant for Compatibility ===============*/
+	{"Mode  9: 1280 x  720  Aspect 16:9  WideScreen"            , 1280, 720, 640, 360, 1, 1  },
+	{"Mode 10: 1366 x  768  Aspect 16:9  WideScreen"            , 1366, 768, 683, 384, 1, 1  },
+	{"Mode 11: 1440 x  900  Aspect 16:10 WideScreen"            , 1440, 900, 720, 450, 3, 1  },
+	{"Mode 12: 1400 x 1050  Aspect  4:3  Standard"              , 1400,1050, 640, 480, 0, 1  },
+	{"Mode 13: 1600 x  900  Aspect 16:9  WideScreen"			, 1600,	900, 640, 480, 1, 1  },
+	{"Mode 14: 1680 x 1050  Aspect 16:10 WideScreen"            , 1680,1050, 640, 400, 2, 1  },
+	{"Mode 15: 1920 x 1080  Aspect 16:9  WideScreen"            , 1920,1080, 640, 360, 1, 1  },
+	{"Mode 16: 1920 x 1200  Aspect 16:10 WideScreen"            , 1920,1200, 640, 400, 2, 1  },
+	{"Mode 17: 2048 x 1152  Aspect 16:9  WideScreen"			, 2048,1152, 640, 400, 1, 1  },
+	{"Mode 18: 2560 x 1600  Aspect 16:10 WideScreen"            , 2560,1600, 640, 400, 2, 1  },
+	{"Mode 19: 3200 x 2400  Aspect  4:3  Standard "				, 3200,2400, 640, 400, 0, 0  },
+	{"Mode 20: 3840 x 2160  Aspect 16:9  WideScreen"            , 3840,2160, 640, 360, 1, 1  },
+	{"Mode 21: 4096 x 2304  Aspect 16:9  WideScreen"			, 4096,2304, 640, 360, 1, 1  },
+	{"Mode 22: 2880 x 1800  Aspect 16:10 WideScreen"			, 2880,1800, 640, 360, 2, 1  },
+	{"Mode 23: 2560 x 1440  Aspect 16:9  WideScreen"            , 2560,1440, 640, 360, 1, 1  },
+	/* ============================ Extended Modes ===========================================*/
+	{"Mode 24:  320 x  200  Aspect 16:10 WideScreen"            ,  320, 200, 320, 200, 2, 1  },
+	{"Mode 25:  320 x  256  Aspect  5:4  Square Pixel (LCD)"    ,  320, 256, 320, 256, 4, 1  },
+	{"Mode 26:  640 x  360  Aspect 16:9  WideScreen"            ,  640, 360, 640, 360, 1, 1  },
+	{"Mode 27:  640 x  384  Aspect  5:3  WideScreen"            ,  640, 384, 640, 384, 3, 1  },
+	{"Mode 28:  640 x  400  Aspect 16:10 WideScreen"            ,  640, 400, 640, 400, 2, 1  },
+	{"Mode 29:  640 x  512  Aspect  5:4  Square Pixel (LCD)"    ,  640, 512, 640, 512, 4, 1  },
+	{"Mode 30:  683 x  384  Aspect 16:9  WideScreen"            ,  683, 384, 683, 384, 1, 1  },
+	{"Mode 31:  720 x  450  Aspect 16:10 WideScreen"            ,  720, 450, 720, 450, 2, 1  },
+	{"Mode 32:  720 x  486  Aspect 16:9  WideScreen"            ,  720, 486, 640, 400, 1, 1  },
+	{"Mode 33:  840 x  525  Aspect 16:10 WideScreen"            ,  840, 525, 640, 400, 2, 1  },
+	{"Mode 34:  840 x  540  Aspect 14:9  WideScreen"            ,  840, 540, 640, 400, 5, 1  },
+	{"Mode 35:  960 x  540  Aspect 16:9  WideScreen"            ,  960, 540, 640, 360, 1, 1  },
+	{"Mode 36:  960 x  600  Aspect 16:10 WideScreen"            ,  960, 600, 640, 400, 2, 1  },
+	{"Mode 37: 1280 x  360  Aspect 32:9  WideScreen"            , 1280, 360, 640, 360, 7, 1  },/**/
+	{"Mode 38: 1280 x  560  Aspect 21:9  WideScreen"            , 1280, 560, 640, 360, 6, 1  },/**/
+	{"Mode 39: 1280 x  768  Aspect  5:3  WideScreen"            , 1280, 768, 640, 384, 3, 1  },
+	{"Mode 40: 1280 x  800  Aspect 16:10 WideScreen"            , 1280, 800, 640, 400, 2, 1  },
+	{"Mode 41: 1280 x  960  Aspect  4:3  Standard"              , 1280, 960, 640, 480, 0, 1  },
+	{"Mode 42: 1360 x  768  Aspect 16:9  WideScreen"            , 1360, 768, 680, 384, 1, 1  },
+	{"Mode 43: 1440 x 1080  Aspect  4:3  WideScreen"            , 1440,1080, 720, 450, 0, 1  },/**/
+	{"Mode 44: 1680 x 1080  Aspect 14:9  WideScreen"            , 1680,1080, 640, 400, 5, 1  },
+	{"Mode 45: 1792 x 1344  Aspect  4:3  Standard"              , 1792,1344, 640, 480, 0, 1  },
+	{"Mode 46: 1856 x 1392  Aspect  4:3  Standard"              , 1856,1392, 640, 480, 0, 1  },
+	{"Mode 47: 1920 x 1440  Aspect  4:3  Standard"              , 1920,1440, 640, 480, 0, 1  },
+	{"Mode 48: 2048 x 1536  Aspect  4:3  Standard"              , 2048,1536, 640, 480, 0, 1  },
+	{"Mode 49: 2560 x 720   Aspect 32:9  WideScreen"            , 2560, 720, 640, 400, 7, 1  },/**/
+	{"Mode 50: 2560 x 1080  Aspect 21:9  WideScreen"            , 2560,1080, 640, 400, 6, 1  },/**/
+	{"Mode 51: 2560 x 2048  Aspect  4:3  Standard"              , 2560,2048, 640, 400, 1, 1  },
+	{"Mode 52: 2880 x 1620  Aspect 16:9  WideScreen"            , 2880,1620, 640, 400, 1, 1  },
+	{"Mode 53: 3264 x 1836  Aspect 16:9  WideScreen"            , 3264,1836, 640, 360, 1, 1  },
+	{"Mode 54: 3440 × 1440  Aspect 21:9  WideScreen"            , 3440,1440, 640, 360, 6, 1  },/**/
+	{"Mode 55: 3840 x 1080  Aspect 32:9  WideScreen"            , 3840,1080, 640, 360, 7, 1  },/**/
+	{"Mode 56: 3840 x 2400  Aspect 16:10 WideScreen"            , 3840,2400, 640, 400, 2, 1  },
+	{"Mode 57: 5120 x 1440  Aspect 32:9  WideScreen"            , 5120,1400, 640, 400, 7, 1  },/**/
+	{"Mode 58: 5120 × 2160  Aspect 21:9  WideScreen"            , 5120,2160, 640, 360, 6, 1  },/**/
+
+		// DG: from here on: modes I added.
+
+	/*
+	{ "Mode  0: 640x480",	640,	480		}, // 4  : 3
+	{ "Mode  1: 800x600",	800,	600		}, // 4  : 3
+	{ "Mode  2: 1024x768",	1024,	768		}, // 4  : 3
+	{ "Mode  3: 1280x720",	1280,	720		}, // 16 : 9
+	{ "Mode  4: 1366x768",	1366,	768		}, // 16 : 9
+	{ "Mode  5: 1600x900",	1600,	900		}, // 16 : 9
+	{ "Mode  6: 1600x1200",	1600,	1200	}, // 4  : 3
+	{ "Mode  7: 1680x1050",	1680,	1050	}, // 16 : 10
+	{ "Mode  8: 1920x1080",	1920,	1080	}, // 16 : 9
+	{ "Mode  9: 2048x1152",	2048,	1152	}, // 16 : 9
+	{ "Mode 10: 2560x1440",	2560,	1440	}, // 16 : 9
+	*/
+
+	/*
+	{ "Mode  0: 320x240",		320,	240 },
+	{ "Mode  1: 400x300",		400,	300 },
+	{ "Mode  2: 512x384",		512,	384 },
+	{ "Mode  3: 640x480",		640,	480 },
+	{ "Mode  4: 800x600",		800,	600 },
+	{ "Mode  5: 1024x768",		1024,	768 },
+	{ "Mode  6: 1152x864",		1152,	864 },
+	{ "Mode  7: 1280x1024",		1280,	1024 },
+	{ "Mode  8: 1600x1200",		1600,	1200 },
+	*/
 };
-static int	s_numVidModes = ( sizeof( r_vidModes ) / sizeof( r_vidModes[0] ) );
+//static int	s_numVidModes = ( sizeof( r_vidModes ) / sizeof( r_vidModes[0] ) );
+// DG: made this an enum so even stupid compilers accept it as array length below
+enum { s_numVidModes = sizeof(r_vidModes) / sizeof(r_vidModes[0]) };
 
 #if MACOS_X
 bool R_GetModeInfo( int *width, int *height, int mode ) {
 #else
+/*
+	Marty -- GetModeInfo Updatet
+
+*/
 static bool R_GetModeInfo( int *width, int *height, int mode ) {
 #endif
 	vidmode_t	*vm;
 
-    if ( mode < -1 ) {
-        return false;
+	if ( mode < -2 ) {
+		return false;
 	}
 	if ( mode >= s_numVidModes ) {
 		return false;
 	}
 
-	if ( mode == -1 ) {
-		*width = r_customWidth.GetInteger();
-		*height = r_customHeight.GetInteger();
+	if (mode >= 0 && mode <= 2 || mode >= 24 && mode <= 25) {		
+		common->Warning("\nScreenmode: %s not set.\nScreen resolutions are too old and are no longer properly supported by the graphics cards.Setting back to Safe Mode.\n\n", r_vidModes[mode].description);
+		mode = -2;
+		r_mode.SetInteger(-2);
+	}
+
+	if (mode == -2) {
+		/* Marty -- Desktop Mode */
+		
+		HDC hDC = GetDC(GetDesktopWindow());
+		*width  = GetDeviceCaps(hDC, HORZRES);
+		*height = GetDeviceCaps(hDC, VERTRES);
+		ReleaseDC(GetDesktopWindow(), hDC);
+
+		for (int ScrMode = 0; ScrMode < s_numVidModes; ScrMode++)
+		{
+			if (*width == r_vidModes[ScrMode].width && *height == r_vidModes[ScrMode].height )
+			{				
+				r_aspectRatio.SetInteger(r_vidModes[ScrMode].aspect);
+				r_scaleMenusTo43.SetInteger(r_vidModes[ScrMode].scale);
+				common->Printf("Screenmode: %s\n", r_vidModes[ScrMode].description);
+			}
+		}
 		return true;
 	}
 
+	if ( mode == -1 ) {
+		*width  = r_customWidth.GetInteger();
+		*height = r_customHeight.GetInteger();
+
+		for (int ScrMode = 0; ScrMode < s_numVidModes; ScrMode++)
+		{
+			if (*width == r_vidModes[ScrMode].width && *height == r_vidModes[ScrMode].height)
+			{
+				r_aspectRatio.SetInteger( r_vidModes[ScrMode].aspect);
+				r_scaleMenusTo43.SetInteger(r_vidModes[ScrMode].scale);
+				common->Printf("Screenmode: %s\n", r_vidModes[ScrMode].description);
+			}
+		}
+
+		return true;
+	}
+	
 	vm = &r_vidModes[mode];
 
 	if ( width ) {
@@ -594,11 +752,98 @@ static bool R_GetModeInfo( int *width, int *height, int mode ) {
 	if ( height ) {
 		*height = vm->height;
 	}
+	
+	r_aspectRatio.SetInteger(vm->aspect);
+	r_scaleMenusTo43.SetInteger(vm->scale);
+	common->Printf("Screenmode: %s\n", vm->description);
+	return true;
+}
 
-    return true;
+// DG: I added all this vidModeInfoPtr stuff, so I can have a second list of vidmodes
+//     that are sorted (by width, height), instead of just r_mode index.
+//     That way I can add modes without breaking r_mode, but still display them
+//     sorted in the menu.
+
+struct vidModePtr {
+	vidmode_t* vidMode;
+	int modeIndex;
+};
+
+static vidModePtr sortedVidModes[s_numVidModes];
+
+static int vidModeCmp(const void* vm1, const void* vm2)
+{
+	const vidModePtr* v1 = static_cast<const vidModePtr*>(vm1);
+	const vidModePtr* v2 = static_cast<const vidModePtr*>(vm2);
+
+	// sort primarily by width, secondarily by height
+	int wdiff = v1->vidMode->width - v2->vidMode->width;
+	return (wdiff != 0) ? wdiff : (v1->vidMode->height - v2->vidMode->height);
+}
+
+static void initSortedVidModes()
+{
+	if (sortedVidModes[0].vidMode != NULL)
+	{
+		// already initialized
+		return;
+	}
+
+	for (int i = 0; i < s_numVidModes; ++i)
+	{
+		sortedVidModes[i].modeIndex = i;
+		sortedVidModes[i].vidMode = &r_vidModes[i];
+	}
+
+	qsort(sortedVidModes, s_numVidModes, sizeof(vidModePtr), vidModeCmp);
 }
 
 
+// DG: the following two functions are part of a horrible hack in ChoiceWindow.cpp
+//     to overwrite the default resolution list in the system options menu
+
+// "r_custom*;640x480;800x600;1024x768;..."
+idStr R_GetVidModeListString(bool addCustom)
+{
+	idStr ret  = addCustom ? "Desktop" : "";
+	      ret += addCustom ? ";Custom" : "";
+
+	for (int i = 0; i < s_numVidModes; ++i)
+	{
+		//for some reason, modes 0-2 are not used. maybe too small for GUI?
+		if (sortedVidModes[i].modeIndex >= 3 && sortedVidModes[i].vidMode != NULL)
+		{
+			idStr modeStr;
+			sprintf(modeStr, ";%dx%d", sortedVidModes[i].vidMode->width, sortedVidModes[i].vidMode->height);
+			ret += modeStr;
+		}
+	}
+	return ret;
+}
+
+// r_mode values for resolutions from R_GetVidModeListString(): "-1;3;4;5;..."
+idStr R_GetVidModeValsString(bool addCustom)
+{
+	idStr ret  = addCustom ? "-2" : "";  // for  Desktop Resolution
+	      ret += addCustom ? ";-1" : ""; // for custom resolutions using r_customWidth/r_customHeight
+
+	for (int i = 0; i < s_numVidModes; ++i)
+	{
+		// for some reason, modes 0-2 are not used. maybe too small for GUI?
+		if (sortedVidModes[i].modeIndex >= 3 && sortedVidModes[i].vidMode != NULL)
+		{
+			ret += ";";
+			ret += sortedVidModes[i].modeIndex;
+		}
+	}
+	return ret;
+}
+// DG end
+
+bool R_UseOldModeIndex(void)
+{
+	return cmp_usedefmodeindex.GetBool();
+}
 /*
 ==================
 R_InitOpenGL
@@ -630,6 +875,10 @@ void R_InitOpenGL( void ) {
 	tr.viewportOffset[0] = 0;
 	tr.viewportOffset[1] = 0;
 
+	if (cmp_usedefmodeindex.GetBool() == false)
+	{
+		initSortedVidModes();
+	}
 	//
 	// initialize OS specific portions of the renderSystem
 	//
@@ -642,6 +891,7 @@ void R_InitOpenGL( void ) {
 		parms.fullScreen = r_fullscreen.GetBool();
 		parms.displayHz = r_displayRefresh.GetInteger();
 		parms.multiSamples = r_multiSamples.GetInteger();
+		parms.borderless = r_borderless.GetBool();			// Added by Marty
 		parms.stereo = false;
 
 		if ( GLimp_Init( parms ) ) {
@@ -655,10 +905,11 @@ void R_InitOpenGL( void ) {
 
 		// if we failed, set everything back to "safe mode"
 		// and try again
-		r_mode.SetInteger( 3 );
-		r_fullscreen.SetInteger( 1 );
+		r_mode.SetInteger( -2 );		// Marty -- was 3 (Going to Desktop Window Mode)
+		r_fullscreen.SetInteger( 0 );	// Marty -- was 1
 		r_displayRefresh.SetInteger( 0 );
 		r_multiSamples.SetInteger( 0 );
+		r_borderless.SetBool(true);		//*marty*/
 	}
 
 	// input and sound systems need to be tied to the new window
@@ -708,6 +959,7 @@ void R_InitOpenGL( void ) {
 	// Reset our gamma
 	R_SetColorMappings();
 
+	ReleaseCapture(); /* Marty */
 #ifdef _WIN32
 	static bool glCheck = false;
 	if ( !glCheck && win32.osversion.dwMajorVersion == 6 ) {
@@ -737,8 +989,8 @@ GL_CheckErrors
 ==================
 */
 void GL_CheckErrors( void ) {
-    int		err;
-    char	s[64];
+	int		err;
+	char	s[64];
 	int		i;
 
 	// check for up to 10 errors pending
@@ -808,15 +1060,69 @@ static void R_ReloadSurface_f( const idCmdArgs &args ) {
 
 /*
 ==============
-R_ListModes_f
+R_ListModes_f / Marty -- Listmodes Updatet
 ==============
 */
 static void R_ListModes_f( const idCmdArgs &args ) {
-	int i;
+	int i, j, hz;
+	bool fs, bl, as;
+
+	fs = r_fullscreen.GetBool();
+	bl = r_borderless.GetBool();
+	as = r_swapInterval.GetInteger();
 
 	common->Printf( "\n" );
-	for ( i = 0; i < s_numVidModes; i++ ) {
-		common->Printf( "%s\n", r_vidModes[i].description );
+	common->Printf(S_COLOR_MAGENTA"=================== Standard Modes: Doom 3 ==============\n");
+
+	for (i = 0; i < s_numVidModes; i++)
+	{
+		if (i >= 9 && i <= 9)
+			common->Printf(S_COLOR_MAGENTA"=================== Extended Modes: dhewm3 ==============\n");
+
+		if (i >= 24 && i <= 24)
+			common->Printf(S_COLOR_MAGENTA"=================== Extended Modes: D3FCM  ==============\n");
+		
+		if (i >= 0 && i <= 2 || i >= 24 && i <= 25)
+		{
+			common->Printf(S_COLOR_RED"[-] %s \n", r_vidModes[i].description);
+			continue;
+		}
+		
+		if (glConfig.vidWidth == r_vidModes[i].width && glConfig.vidHeight == r_vidModes[i].height)
+		{
+			common->Printf(S_COLOR_GREEN"[x] %s \n", r_vidModes[i].description);
+			j = i;
+		}
+		else
+		{
+			common->Printf("    %s\n", r_vidModes[i].description);
+		}
+	}
+	common->Printf("\n");
+
+	if (r_mode.GetInteger() == -2)
+	{
+		HDC hDC = GetDC(GetDesktopWindow());
+		int w = GetDeviceCaps(hDC, HORZRES);
+		int h = GetDeviceCaps(hDC, VERTRES);
+		ReleaseDC(GetDesktopWindow(), hDC);
+
+		if (j > 0)
+			common->Printf(S_COLOR_GREEN"Current Desktop Resolution is same how Mode: %d\n", j);
+
+		common->Printf(S_COLOR_GREEN"Current Desktop Resolution %dx%d %s %s %s\n",w ,h, bl ? "[ Borderless ]" : "", fs ? "" : "[ Window ]", as ? "[ VSync ]": "");
+	}
+	else if (r_mode.GetInteger() == -1)
+	{
+		if (j > 0)
+			common->Printf(S_COLOR_GREEN"Current Custom Resolution is same how Mode: %d\n", j);
+
+		common->Printf(S_COLOR_GREEN"Current Custom %dx%d %s %s %s\n", r_customWidth.GetInteger(), r_customHeight.GetInteger(), bl ? "[ Borderless ]" : "", fs ? "" : "[ Window ]", as ? "[ VSync ]" : "");
+
+	}
+	else
+	{
+		common->Printf(S_COLOR_GREEN"Current %s %s %s %s\n", r_vidModes[j].description, bl ? "[ Borderless ]" : "", fs ? "" : "[ Window ]", as ? "[ VSync ]" : "");
 	}
 	common->Printf( "\n" );
 }
@@ -1760,7 +2066,6 @@ void R_SetColorMappings( void ) {
 		if (inf > 0xffff) {
 			inf = 0xffff;
 		}
-
 		tr.gammaTable[i] = inf;
 	}
 
@@ -1937,6 +2242,7 @@ void R_VidRestart_f( const idCmdArgs &args ) {
 		parms.fullScreen = ( forceWindow ) ? false : r_fullscreen.GetBool();
 		parms.displayHz = r_displayRefresh.GetInteger();
 		parms.multiSamples = r_multiSamples.GetInteger();
+		parms.fullScreen = (forceWindow) ? false : r_borderless.GetBool();		// Added by Marty
 		parms.stereo = false;
 		GLimp_SetScreenParms( parms );
 	}
@@ -2168,6 +2474,8 @@ void idRenderSystemLocal::Init( void ) {
 	// ??? this is invalid here as there is not enough information to set it up correctly
 	SetBackEndRenderer();
 
+	origWidth = origHeight = 0; // DG: for resetting width/height in EndFrame()
+
 	common->Printf( "renderSystem initialized.\n" );
 	common->Printf( "--------------------------------------\n" );
 }
@@ -2283,6 +2591,16 @@ bool idRenderSystemLocal::IsOpenGLRunning( void ) const {
 		return false;
 	}
 	return true;
+}
+
+/*
+========================
+idRenderSystemLocal::IsBorderless
+Marty - Borderless
+========================
+*/
+bool idRenderSystemLocal::IsBorderless(void) const {
+	return glConfig.isBorderless;
 }
 
 /*

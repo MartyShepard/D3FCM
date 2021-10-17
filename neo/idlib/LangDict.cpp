@@ -98,6 +98,11 @@ bool idLangDict::Load( const char *fileName, bool clear /* _D3XP */ ) {
 			idLangKeyValue kv;
 			kv.key = tok;
 			kv.value = tok2;
+
+			#if defined DEBUG
+				TRACE("kv.key %s (File %s)\r", kv.key.c_str(), fileName);
+			#endif
+			
 			assert( kv.key.Cmpn( STRTABLE_ID, STRTABLE_ID_LENGTH ) == 0 );
 			hash.Add( GetHashKey( kv.key ), args.Append( kv ) );
 		}
@@ -302,7 +307,10 @@ idLangDict::GetHashKey
 int idLangDict::GetHashKey( const char *str ) const {
 	int hashKey = 0;
 	for ( str += STRTABLE_ID_LENGTH; str[0] != '\0'; str++ ) {
-		assert( str[0] >= '0' && str[0] <= '9' );
+		if  ( str[0] > '9')
+			idStr pup = "Hallo";
+
+	//	assert( str[0] >= '0' && str[0] <= '9' );
 		hashKey = hashKey * 10 + str[0] - '0';
 	}
 	return hashKey;

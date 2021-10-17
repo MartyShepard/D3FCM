@@ -109,7 +109,7 @@ BOOL CMapInfo::OnInitDialog()
   {
     mapEntity.GetNextAssoc(pos, strKey, reinterpret_cast<void*&>(nValue));
     CString strList;
-    strList.Format("%s\t%i", strKey, nValue);
+    strList.Format("%s\t%i", strKey.GetString(), nValue);
     m_lstEntity.AddString(strList);
   }
 

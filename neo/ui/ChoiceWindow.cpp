@@ -349,9 +349,114 @@ void idChoiceWindow::UpdateChoicesAndVals( void ) {
 		latchedVals = choiceVals.c_str();
 	}
 }
+/*
+* DG: HACKHACKFUCKINGUGLYHACK
+*/
+idStr R_GetVidModeListString(bool addCustom);
+idStr R_GetVidModeValsString(bool addCustom);
+/*
+* Marty -- as Compatibility Fix 
+*/
+ bool R_UseOldModeIndex(void);
+
+bool idChoiceWindow::InJectResolutions(void)
+{
+	/*
+	*	not done
+		Venoms Menu is more ..... 
+		Hexen - Edge of Chaos ... has own extended
+	*/
+
+	/*
+	*  Standard Doom 3/ Roe
+	*/
+	if (idStr::Cmp(GetName(), "OS2Primary") == 0 && cvarStr == "r_mode"
+		&& (idStr::Icmp(GetGui()->GetSourceFile(), "guis/demo_mainmenu.gui") == 0 ||
+			idStr::Icmp(GetGui()->GetSourceFile(), "guis/mpmain.gui") == 0 ||	/* For Multiplayer Menu */
+			idStr::Icmp(GetGui()->GetSourceFile(), "guis/mainmenu.gui") == 0))
+	{
+		// always enable this for base/ and d3xp/ mainmenu.gui (like we did before)
+		return true;
+	}
+
+	/*
+		Desolated - The Crying Free
+		Defination Gui file is guis/menus/inlucde/system.inlude
+	*/
+	if (idStr::Cmp(GetName(), "ScreenSizeValue4To3")  == 0 || 
+		idStr::Cmp(GetName(), "ScreenSizeValue16To9") == 0 ||
+		idStr::Cmp(GetName(), "ScreenSizeValue16To10")== 0)
+	{
+		return true;
+	}
+
+	/*
+		Classic Doom v1.3.1
+	*/
+	if (idStr::Cmp(GetName(), "r_screenresolution") == 0 && cvarStr == "r_mode" && 
+		idStr::Icmp(GetGui()->GetSourceFile(), "guis/mainmenu.gui") == 0)
+	{
+		return true;
+	}
+
+	/*
+		GRIMM - Quest For the Gatherers Key
+	*/
+	if (idStr::Cmp(GetName(), "socScreenSize") == 0 && cvarStr == "r_screenresolution" &&
+		idStr::Icmp(GetGui()->GetSourceFile(), "guis/mainmenu.gui") == 0)
+	{
+		return true;
+	}
+
+	/*
+		Predator: Blade Yautja
+	*/
+	if (idStr::Cmp(GetName(), "S8Primary") == 0 && cvarStr == "r_mode" &&
+		idStr::Icmp(GetGui()->GetSourceFile(), "guis/mainmenu.gui") == 0)
+	{
+		return true;
+	}
+
+	/*
+		Quake II: Lost Marine v.96
+	*/
+	if (idStr::Cmp(GetName(), "ScreenSizeVal") == 0 && cvarStr == "r_mode" &&
+		idStr::Icmp(GetGui()->GetSourceFile(), "guis/mainmenu.gui") == 0)
+	{
+		return true;
+	}
+
+	return false;
+}
 
 void idChoiceWindow::PostParse() {
 	idWindow::PostParse();
+
+	/*
+	* Marty -- Compatibility Fix
+	*/
+	if (!R_UseOldModeIndex())
+	{
+
+		// DG: HACKHACKFUCKINGUGLYHACK: overwrite resolution list
+		//     to support more resolutions and widescreen and stuff.
+		bool injectResolutions = false;
+		bool injectCustomMode = true;
+
+		TRACE(" Defination: %s -- cvar = %s -- File %s -- InitFromFile %s\r", GetName(), cvarStr.c_str(), GetGui()->GetSourceFile(), GetGui()->GetSourceFile());
+
+		injectResolutions = InJectResolutions();
+
+
+		if (injectResolutions) {
+			choicesStr.Set(R_GetVidModeListString(injectCustomMode));
+			choiceVals.Set(R_GetVidModeValsString(injectCustomMode));
+		}
+		/*
+		* DG: End =======================================================================
+		*/
+	}
+
 	UpdateChoicesAndVals();
 
 	InitVars();

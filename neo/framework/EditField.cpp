@@ -29,6 +29,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../idlib/precompiled.h"
 #pragma hdrstop
 
+// Marty -- added
+#include "..\renderer\tr_local.h"	
 static autoComplete_t	globalAutoComplete;
 
 /*
@@ -298,6 +300,11 @@ idEditField::CharEvent
 void idEditField::CharEvent( int ch ) {
 	int		len;
 
+	// Marty - Fix for Console Open/Close (German key)
+	if ( ch == 94 ) {
+		return;
+	}
+
 	if ( ch == 'v' - 'a' + 1 ) {	// ctrl-v is paste
 		Paste();
 		return;
@@ -536,7 +543,7 @@ void idEditField::Draw( int x, int y, int width, bool showCursor, const idMateri
 	char	str[MAX_EDIT_LINE];
 	int		size;
 
-	size = SMALLCHAR_WIDTH;
+	size = con_fontsizew.GetInteger(); /* Marty -- was SMALLCHAR_WIDTH; */
 
 	drawLen = widthInChars;
 	len = strlen( buffer ) + 1;
@@ -575,7 +582,7 @@ void idEditField::Draw( int x, int y, int width, bool showCursor, const idMateri
 	str[ drawLen ] = 0;
 
 	// draw it
-	renderSystem->DrawSmallStringExt( x, y, str, colorWhite, false, shader );
+	tr.DrawSmallStringCon( x, y, str, colorWhite, false, shader, con_fontsizeh.GetInteger(), con_fontsizew.GetInteger());
 
 	// draw the cursor
 	if ( !showCursor ) {
@@ -600,5 +607,5 @@ void idEditField::Draw( int x, int y, int width, bool showCursor, const idMateri
 		}
 	}
 
-	renderSystem->DrawSmallChar( x + ( cursor - prestep ) * size, y, cursorChar, shader );
+	tr.DrawSmallCons( x + ( cursor - prestep ) * size, y, cursorChar, shader, con_fontsizeh.GetInteger(), con_fontsizew.GetInteger());
 }
